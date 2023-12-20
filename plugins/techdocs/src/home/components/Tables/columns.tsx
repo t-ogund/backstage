@@ -30,6 +30,14 @@ function customTitle(entity: Entity): string {
  * @public
  */
 export const columnFactories = {
+  createTitleColumn(): TableColumn<DocsTableRow> {
+    return {
+      title: 'Title',
+      field: 'entity.metadata.title',
+      hidden: true,
+      searchable: true,
+    };
+  },
   createNameColumn(): TableColumn<DocsTableRow> {
     return {
       title: 'Document',
