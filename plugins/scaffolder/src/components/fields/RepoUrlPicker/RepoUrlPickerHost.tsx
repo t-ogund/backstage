@@ -19,7 +19,7 @@ import FormControl from '@material-ui/core/FormControl';
 import FormHelperText from '@material-ui/core/FormHelperText';
 import { useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
-import useAsync from 'react-use/lib/useAsync';
+import useAsync from 'react-use/esm/useAsync';
 
 export const RepoUrlPickerHost = (props: {
   host?: string;
@@ -72,7 +72,7 @@ export const RepoUrlPickerHost = (props: {
       >
         <Select
           native
-          disabled={hosts?.length === 1 ?? false}
+          disabled={hosts?.length === 1}
           label="Host"
           onChange={s => onChange(String(Array.isArray(s) ? s[0] : s))}
           selected={host}

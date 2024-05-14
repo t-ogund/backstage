@@ -1,5 +1,100 @@
 # @backstage/plugin-scaffolder-common
 
+## 1.5.2
+
+### Patch Changes
+
+- 9156654: Capturing more event clicks for scaffolder
+- Updated dependencies
+  - @backstage/catalog-model@1.5.0
+
+## 1.5.2-next.1
+
+### Patch Changes
+
+- 9156654: Capturing more event clicks for scaffolder
+
+## 1.5.2-next.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @backstage/catalog-model@1.5.0-next.0
+  - @backstage/types@1.1.1
+  - @backstage/plugin-permission-common@0.7.13
+
+## 1.5.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @backstage/plugin-permission-common@0.7.13
+  - @backstage/catalog-model@1.4.5
+  - @backstage/types@1.1.1
+
+## 1.5.1-next.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @backstage/plugin-permission-common@0.7.13-next.1
+  - @backstage/catalog-model@1.4.5-next.0
+  - @backstage/types@1.1.1
+
+## 1.5.1-next.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @backstage/plugin-permission-common@0.7.13-next.0
+  - @backstage/catalog-model@1.4.5-next.0
+  - @backstage/types@1.1.1
+
+## 1.5.0
+
+### Minor Changes
+
+- 11b9a08: Introduced the first version of recoverable tasks.
+
+### Patch Changes
+
+- Updated dependencies
+  - @backstage/catalog-model@1.4.4
+  - @backstage/types@1.1.1
+  - @backstage/plugin-permission-common@0.7.12
+
+## 1.5.0-next.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @backstage/catalog-model@1.4.4-next.0
+  - @backstage/types@1.1.1
+  - @backstage/plugin-permission-common@0.7.12
+
+## 1.5.0-next.0
+
+### Minor Changes
+
+- 11b9a08: Introduced the first version of recoverable tasks.
+
+### Patch Changes
+
+- Updated dependencies
+  - @backstage/catalog-model@1.4.3
+  - @backstage/types@1.1.1
+  - @backstage/plugin-permission-common@0.7.12
+
+## 1.4.5
+
+### Patch Changes
+
+- 178b8d8: Updated Template.v1beta3.schema.json, added a missing "presentation" field
+- Updated dependencies
+  - @backstage/plugin-permission-common@0.7.12
+  - @backstage/catalog-model@1.4.3
+  - @backstage/types@1.1.1
+
 ## 1.4.4
 
 ### Patch Changes
@@ -554,8 +649,7 @@
 
 - e72d371296: Added `TemplateEntityV1beta2` which was moved here from
   `@backstage/plugin-scaffolder-common`. It has also been marked as deprecated in
-  the process - please consider [migrating to `v1beta3`
-  templates](https://backstage.io/docs/features/software-templates/migrating-from-v1beta2-to-v1beta3).
+  the process - please consider [migrating to `v1beta3` templates](https://backstage.io/docs/features/software-templates/migrating-from-v1beta2-to-v1beta3).
 - c77c5c7eb6: Added `backstage.role` to `package.json`
 - Updated dependencies
   - @backstage/catalog-model@0.10.0

@@ -1,7 +1,7 @@
 {
   "name": "@backstage/backend-defaults",
   "description": "Backend defaults used by Backstage backend apps",
-  "version": "0.2.8",
+  "version": "0.2.18",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "publishConfig": {
@@ -34,9 +34,10 @@
   "dependencies": {
     "@backstage/backend-app-api": "workspace:^",
     "@backstage/backend-common": "workspace:^",
-    "@backstage/backend-plugin-api": "workspace:^"
+    "@backstage/plugin-events-node": "workspace:^"
   },
   "devDependencies": {
+    "@backstage/backend-plugin-api": "workspace:^",
     "@backstage/backend-test-utils": "workspace:^",
     "@backstage/cli": "workspace:^"
   },

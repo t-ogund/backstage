@@ -6,8 +6,6 @@ sidebar_label: Testing
 description: Learn how to test your backend plugins and modules
 ---
 
-> **NOTE: The new backend system is in alpha, and some plugins do not yet fully implement it.**
-
 Utilities for testing backend plugins and modules are available in
 `@backstage/backend-test-utils`. This section describes those facilities.
 
@@ -23,8 +21,7 @@ collective term for backend [plugins](../architecture/04-plugins.md) and
 
 The function returns an HTTP server instance which can be used together with
 e.g. `supertest` to easily test the actual REST service surfaces of plugins who
-register routes with [the HTTP router service
-API](../core-services/01-index.md).
+register routes with [the HTTP router service API](../core-services/01-index.md).
 
 ```ts
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';

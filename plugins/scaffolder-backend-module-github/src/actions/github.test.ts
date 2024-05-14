@@ -34,15 +34,13 @@ jest.mock('@backstage/plugin-scaffolder-node', () => {
 });
 
 import { TemplateAction } from '@backstage/plugin-scaffolder-node';
-import { getVoidLogger } from '@backstage/backend-common';
 import { ConfigReader } from '@backstage/config';
+import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
 import {
   DefaultGithubCredentialsProvider,
   GithubCredentialsProvider,
   ScmIntegrations,
 } from '@backstage/integration';
-import { when } from 'jest-when';
-import { PassThrough } from 'stream';
 import { createPublishGithubAction } from './github';
 import { initRepoAndPush } from '@backstage/plugin-scaffolder-node';
 import {
@@ -77,6 +75,7 @@ const mockOctokit = {
       getRepoPublicKey: jest.fn(),
     },
   },
+  request: jest.fn(),
 };
 jest.mock('octokit', () => ({
   Octokit: class {
@@ -102,19 +101,14 @@ describe('publish:github', () => {
   let githubCredentialsProvider: GithubCredentialsProvider;
   let action: TemplateAction<any>;
 
-  const mockContext = {
+  const mockContext = createMockActionContext({
     input: {
       repoUrl: 'github.com?repo=repo&owner=owner',
       description: 'description',
       repoVisibility: 'private' as const,
       access: 'owner/blam',
     },
-    workspacePath: 'lol',
-    logger: getVoidLogger(),
-    logStream: new PassThrough(),
-    output: jest.fn(),
-    createTemporaryDirectory: jest.fn(),
-  };
+  });
 
   beforeEach(() => {
     initRepoAndPushMocked.mockResolvedValue({
@@ -761,15 +755,13 @@ describe('publish:github', () => {
       },
     });
 
-    when(mockOctokit.rest.teams.addOrUpdateRepoPermissionsInOrg)
-      .calledWith({
-        org: 'owner',
-        owner: 'owner',
-        repo: 'repo',
-        team_slug: 'robot-1',
-        permission: 'pull',
-      })
-      .mockRejectedValueOnce(new Error('Something bad happened') as never);
+    mockOctokit.rest.teams.addOrUpdateRepoPermissionsInOrg.mockImplementation(
+      async opts => {
+        if (opts.team_slug === 'robot-1') {
+          throw Error('Something bad happened');
+        }
+      },
+    );
 
     await action.handler({
       ...mockContext,
@@ -928,6 +920,40 @@ describe('publish:github', () => {
       key_id: 'keyid',
       encrypted_value: expect.any(String),
     });
+  });
+
+  it('should configure oidc customizations when provided', async () => {
+    mockOctokit.rest.users.getByUsername.mockResolvedValue({
+      data: { type: 'User' },
+    });
+
+    mockOctokit.rest.repos.createForAuthenticatedUser.mockResolvedValue({
+      data: {
+        clone_url: 'https://github.com/clone/url.git',
+        html_url: 'https://github.com/html/url',
+      },
+    });
+
+    await action.handler({
+      ...mockContext,
+      input: {
+        ...mockContext.input,
+        oidcCustomization: {
+          useDefault: false,
+          includeClaimKeys: ['foo', 'bar'],
+        },
+      },
+    });
+
+    expect(mockOctokit.request).toHaveBeenCalledWith(
+      'PUT /repos/{owner}/{repo}/actions/oidc/customization/sub',
+      {
+        include_claim_keys: ['foo', 'bar'],
+        owner: 'owner',
+        repo: 'repo',
+        use_default: false,
+      },
+    );
   });
 
   it('should call output with the remoteUrl and the repoContentsUrl', async () => {

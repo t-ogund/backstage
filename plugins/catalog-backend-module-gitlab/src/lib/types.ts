@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 import { TaskScheduleDefinition } from '@backstage/backend-tasks';
+import { GroupEntity, UserEntity } from '@backstage/catalog-model';
+import { GitLabIntegrationConfig } from '@backstage/integration';
 
 export type PagedResponse<T> = {
   items: T[];
@@ -32,6 +34,9 @@ export type GitlabProjectForkedFrom = {
 
 export type GitLabProject = {
   id: number;
+  description?: string;
+  name?: string;
+  path?: string;
   default_branch?: string;
   archived: boolean;
   last_activity_at: string;
@@ -40,6 +45,11 @@ export type GitLabProject = {
   forked_from_project?: GitlabProjectForkedFrom;
 };
 
+/**
+ * Representation of a GitLab user in the GitLab API
+ *
+ * @public
+ */
 export type GitLabUser = {
   id: number;
   username: string;
@@ -52,15 +62,24 @@ export type GitLabUser = {
   group_saml_identity?: GitLabGroupSamlIdentity;
 };
 
+/**
+ * @public
+ */
 export type GitLabGroupSamlIdentity = {
   extern_uid: string;
 };
 
+/**
+ * Representation of a GitLab group in the GitLab API
+ *
+ * @public
+ */
 export type GitLabGroup = {
   id: number;
   name: string;
   full_path: string;
   description?: string;
+  visibility?: string;
   parent_id?: number;
 };
 
@@ -100,6 +119,7 @@ export type GitLabDescendantGroupsResponse = {
             name: string;
             description: string;
             fullPath: string;
+            visibility: string;
             parent: {
               id: string;
             };
@@ -113,10 +133,25 @@ export type GitLabDescendantGroupsResponse = {
     };
   };
 };
-
+/**
+ * The configuration parameters for the GitlabProvider
+ *
+ * @public
+ */
 export type GitlabProviderConfig = {
+  /**
+   * Identifies one of the hosts set up in the integrations
+   */
   host: string;
+  /**
+   * Required for gitlab.com when `orgEnabled: true`.
+   * Optional for self managed. Must not end with slash.
+   * Accepts only groups under the provided path (which will be stripped)
+   */
   group: string;
+  /**
+   * ???
+   */
   id: string;
   /**
    * The name of the branch to be used, to discover catalog files.
@@ -128,11 +163,159 @@ export type GitlabProviderConfig = {
    * Defaults to: `master`
    */
   fallbackBranch: string;
+  /**
+   * Defaults to `catalog-info.yaml`
+   */
   catalogFile: string;
+  /**
+   * Filters found projects based on provided patter.
+   * Defaults to `[\s\S]*`, which means to not filter anything
+   */
   projectPattern: RegExp;
+  /**
+   * Filters found users based on provided patter.
+   * Defaults to `[\s\S]*`, which means to not filter anything
+   */
   userPattern: RegExp;
+  /**
+   * Filters found groups based on provided patter.
+   * Defaults to `[\s\S]*`, which means to not filter anything
+   */
   groupPattern: RegExp;
+
+  /**
+   * If true, the provider will also ingest add inherited users to the ingested groups
+   */
+  allowInherited?: boolean;
+
   orgEnabled?: boolean;
   schedule?: TaskScheduleDefinition;
+  /**
+   * If the project is a fork, skip repository
+   */
   skipForkedRepos?: boolean;
+};
+
+/**
+ * Customize how group names are generated
+ *
+ * @public
+ */
+export type GroupNameTransformer = (
+  options: GroupNameTransformerOptions,
+) => string;
+
+/**
+ * The GroupTransformerOptions
+ *
+ * @public
+ */
+export interface GroupNameTransformerOptions {
+  group: GitLabGroup;
+  providerConfig: GitlabProviderConfig;
+}
+/**
+ * Customize the ingested User entity
+ *
+ * @public
+ */
+export type UserTransformer = (options: UserTransformerOptions) => UserEntity;
+/**
+ * The UserTransformerOptions
+ *
+ * @public
+ */
+export interface UserTransformerOptions {
+  user: GitLabUser;
+  integrationConfig: GitLabIntegrationConfig;
+  providerConfig: GitlabProviderConfig;
+  groupNameTransformer: GroupNameTransformer;
+}
+
+/**
+ * Customize the ingested Group entity
+ *
+ * @public
+ */
+export type GroupTransformer = (
+  options: GroupTransformerOptions,
+) => GroupEntity[];
+/**
+ * The GroupTransformer options
+ *
+ * @public
+ */
+export interface GroupTransformerOptions {
+  groups: GitLabGroup[];
+  providerConfig: GitlabProviderConfig;
+  groupNameTransformer: GroupNameTransformer;
+}
+
+/**
+ * Represents the schema for system hook events related to groups.
+ * https://docs.gitlab.com/ee/administration/system_hooks.html
+ *
+ * @public
+ */
+export type SystemHookBaseGroupEventsSchema = {
+  created_at: string;
+  updated_at: string;
+  name: string;
+  path: string;
+  full_path: string;
+  group_id: number;
+};
+
+/**
+ * Represents the schema for system hook events related to users.
+ * https://docs.gitlab.com/ee/administration/system_hooks.html
+ *
+ * @public
+ */
+export type SystemHookBaseUserEventsSchema = {
+  created_at: string;
+  updated_at: string;
+  email: string;
+  name: string;
+  username: string;
+  user_id: number;
+};
+
+/**
+ * Represents the schema for system hook events related to user memberships.
+ * https://docs.gitlab.com/ee/administration/system_hooks.html
+ *
+ * @public
+ */
+export type SystemHookBaseMembershipEventsSchema = {
+  created_at: string;
+  updated_at: string;
+  group_name: string;
+  group_path: string;
+  group_id: number;
+  user_username: string;
+  user_email: string;
+  user_name: string;
+  user_id: number;
+  group_access: string;
+};
+
+/**
+ * Represents the schema for system hook events related to projects.
+ * https://docs.gitlab.com/ee/administration/system_hooks.html
+ *
+ * @public
+ */
+export type SystemHookBaseProjectEventsSchema = {
+  created_at: string;
+  updated_at: string;
+  event_name: string;
+  name: string;
+  owner_email: string;
+  owner_name: string;
+  owners: { name: string; email: string }[];
+  path: string;
+  path_with_namespace: string;
+  project_id: number;
+  project_visibility: string;
 };

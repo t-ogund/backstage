@@ -15,7 +15,9 @@ Commands:
   api-reports [options] [paths...]
   type-deps
   generate-catalog-info [options]
-  schema [command]
+  knip-reports [options] [paths...]
+  package [command]
+  repo [command]
   help [command]
 ```
 
@@ -48,10 +50,33 @@ Options:
   -h, --help
 ```
 
-### `backstage-repo-tools schema`
+### `backstage-repo-tools knip-reports`
 
 ```
-Usage: backstage-repo-tools schema [options] [command] [command]
+Usage: backstage-repo-tools knip-reports [options] [paths...]
+
+Options:
+  --ci
+  -h, --help
+```
+
+### `backstage-repo-tools package`
+
+```
+Usage: backstage-repo-tools package [options] [command] [command]
+
+Options:
+  -h, --help
+
+Commands:
+  schema [command]
+  help [command]
+```
+
+### `backstage-repo-tools package schema`
+
+```
+Usage: backstage-repo-tools package schema [options] [command] [command]
 
 Options:
   -h, --help
@@ -61,65 +86,140 @@ Commands:
   help [command]
 ```
 
-### `backstage-repo-tools schema openapi`
+### `backstage-repo-tools package schema openapi`
 
 ```
-Usage: backstage-repo-tools schema openapi [options] [command] [command]
+Usage: backstage-repo-tools package schema openapi [options] [command] [command]
+
+Options:
+  -h, --help
+
+Commands:
+  init
+  generate [options]
+  fuzz [options]
+  help [command]
+```
+
+### `backstage-repo-tools package schema openapi fuzz`
+
+```
+Usage: backstage-repo-tools package schema openapi fuzz [options]
+
+Options:
+  --limit <limit>
+  --workers <workers>
+  --debug
+  --exclude-checks <excludeChecks>
+  -h, --help
+```
+
+### `backstage-repo-tools package schema openapi generate`
+
+```
+Usage: backstage-repo-tools package schema openapi generate [options]
+
+Options:
+  --client-package [package]
+  -h, --help
+```
+
+### `backstage-repo-tools package schema openapi init`
+
+```
+Usage: backstage-repo-tools package schema openapi init [options]
+
+Options:
+  -h, --help
+```
+
+### `backstage-repo-tools repo`
+
+```
+Usage: backstage-repo-tools repo [options] [command] [command]
+
+Options:
+  -h, --help
+
+Commands:
+  schema [command]
+  help [command]
+```
+
+### `backstage-repo-tools repo schema`
+
+```
+Usage: backstage-repo-tools repo schema [options] [command] [command]
+
+Options:
+  -h, --help
+
+Commands:
+  openapi [command]
+  help [command]
+```
+
+### `backstage-repo-tools repo schema openapi`
+
+```
+Usage: backstage-repo-tools repo schema openapi [options] [command] [command]
 
 Options:
   -h, --help
 
 Commands:
   verify [paths...]
-  generate [paths...]
   lint [options] [paths...]
   test [options] [paths...]
-  init <paths...>
+  fuzz [options]
+  diff [options]
   help [command]
 ```
 
-### `backstage-repo-tools schema openapi generate`
+### `backstage-repo-tools repo schema openapi diff`
 
 ```
-Usage: backstage-repo-tools schema openapi generate [options] [paths...]
+Usage: backstage-repo-tools repo schema openapi diff [options]
 
 Options:
+  --since <ref>
   -h, --help
 ```
 
-### `backstage-repo-tools schema openapi init`
+### `backstage-repo-tools repo schema openapi fuzz`
 
 ```
-Usage: backstage-repo-tools schema openapi init [options] <paths...>
+Usage: backstage-repo-tools repo schema openapi fuzz [options]
 
 Options:
+  --since <ref>
   -h, --help
 ```
 
-### `backstage-repo-tools schema openapi lint`
+### `backstage-repo-tools repo schema openapi lint`
 
 ```
-Usage: backstage-repo-tools schema openapi lint [options] [paths...]
+Usage: backstage-repo-tools repo schema openapi lint [options] [paths...]
 
 Options:
   --strict
   -h, --help
 ```
 
-### `backstage-repo-tools schema openapi test`
+### `backstage-repo-tools repo schema openapi test`
 
 ```
-Usage: backstage-repo-tools schema openapi test [options] [paths...]
+Usage: backstage-repo-tools repo schema openapi test [options] [paths...]
 
 Options:
   --update
   -h, --help
 ```
 
-### `backstage-repo-tools schema openapi verify`
+### `backstage-repo-tools repo schema openapi verify`
 
 ```
-Usage: backstage-repo-tools schema openapi verify [options] [paths...]
+Usage: backstage-repo-tools repo schema openapi verify [options] [paths...]
 
 Options:
   -h, --help

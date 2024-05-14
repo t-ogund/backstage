@@ -45,6 +45,7 @@ export interface BackstagePackageJson {
 
   backstage?: {
     role?: PackageRole;
+    moved?: string;
   };
 
   exports?: JsonValue;
@@ -57,6 +58,14 @@ export interface BackstagePackageJson {
     directory?: string;
     registry?: string;
   };
+
+  repository?:
+    | string
+    | {
+        type: string;
+        url: string;
+        directory: string;
+      };
 
   dependencies?: {
     [key: string]: string;
@@ -129,6 +138,7 @@ export class PackageGraph extends Map<string, PackageGraphNode> {
    */
   static async listTargetPackages(): Promise<BackstagePackage[]> {
     const { packages } = await getPackages(paths.targetDir);
+
     return packages as BackstagePackage[];
   }
 

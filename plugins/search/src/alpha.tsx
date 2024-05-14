@@ -16,7 +16,9 @@
 
 import React from 'react';
 
-import { makeStyles, Theme, Grid, Paper } from '@material-ui/core';
+import Grid from '@material-ui/core/Grid';
+import Paper from '@material-ui/core/Paper';
+import { makeStyles, Theme } from '@material-ui/core/styles';
 import SearchIcon from '@material-ui/icons/Search';
 
 import {
@@ -70,6 +72,7 @@ import { UrlUpdater } from './components/SearchPage/SearchPage';
 import {
   compatWrapper,
   convertLegacyRouteRef,
+  convertLegacyRouteRefs,
 } from '@backstage/core-compat-api';
 
 /** @alpha */
@@ -150,11 +153,6 @@ export const searchPage = createPageExtension({
                       {
                         value: 'techdocs',
                         name: 'Documentation',
-                        icon: <DocsIcon />,
-                      },
-                      {
-                        value: 'adr',
-                        name: 'Architecture Decision Records',
                         icon: <DocsIcon />,
                       },
                     ]}
@@ -248,7 +246,7 @@ export const searchNavItem = createNavItemExtension({
 export default createPlugin({
   id: 'search',
   extensions: [searchApi, searchPage, searchNavItem],
-  routes: {
-    root: convertLegacyRouteRef(rootRouteRef),
-  },
+  routes: convertLegacyRouteRefs({
+    root: rootRouteRef,
+  }),
 });

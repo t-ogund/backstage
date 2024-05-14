@@ -15,35 +15,35 @@
  */
 
 import {
-  Entity,
   CompoundEntityRef,
+  Entity,
   parseEntityRef,
   stringifyEntityRef,
   stringifyLocationRef,
 } from '@backstage/catalog-model';
 import { ResponseError } from '@backstage/errors';
 import {
-  CATALOG_FILTER_EXISTS,
   AddLocationRequest,
   AddLocationResponse,
+  CATALOG_FILTER_EXISTS,
   CatalogApi,
-  GetEntitiesRequest,
-  GetEntitiesResponse,
   CatalogRequestOptions,
-  GetEntityAncestorsRequest,
-  GetEntityAncestorsResponse,
-  Location,
-  GetEntityFacetsRequest,
-  GetEntityFacetsResponse,
-  ValidateEntityResponse,
+  EntityFilterQuery,
   GetEntitiesByRefsRequest,
   GetEntitiesByRefsResponse,
+  GetEntitiesRequest,
+  GetEntitiesResponse,
+  GetEntityAncestorsRequest,
+  GetEntityAncestorsResponse,
+  GetEntityFacetsRequest,
+  GetEntityFacetsResponse,
+  Location,
   QueryEntitiesRequest,
-  EntityFilterQuery,
   QueryEntitiesResponse,
+  ValidateEntityResponse,
 } from './types/api';
 import { isQueryEntitiesInitialRequest } from './utils';
-import { DefaultApiClient } from './generated';
+import { DefaultApiClient, TypedResponse } from './generated';
 
 /**
  * A frontend and backend compatible client for communicating with the Backstage
@@ -89,6 +89,21 @@ export class CatalogClient implements CatalogApi {
   }
 
   /**
+   * {@inheritdoc CatalogApi.getLocationByEntity}
+   */
+  async getLocationByEntity(
+    entityRef: CompoundEntityRef | string,
+    options?: CatalogRequestOptions,
+  ): Promise<Location | undefined> {
+    return await this.requestOptional(
+      await this.apiClient.getLocationByEntity(
+        { path: parseEntityRef(entityRef) },
+        options,
+      ),
+    );
+  }
+
+  /**
    * {@inheritdoc CatalogApi.getEntities}
    */
   async getEntities(
@@ -112,7 +127,7 @@ export class CatalogClient implements CatalogApi {
       }
     }
 
-    const entities: Entity[] = await this.requestRequired(
+    const entities = await this.requestRequired(
       await this.apiClient.getEntities(
         {
           query: {
@@ -127,6 +142,11 @@ export class CatalogClient implements CatalogApi {
         options,
       ),
     );
+
+    // do not sort entities, if order is provided
+    if (encodedOrder.length) {
+      return { items: entities };
+    }
 
     const refCompare = (a: Entity, b: Entity) => {
       // in case field filtering is used, these fields might not be part of the response
@@ -162,7 +182,13 @@ export class CatalogClient implements CatalogApi {
   ): Promise<GetEntitiesByRefsResponse> {
     const response = await this.apiClient.getEntitiesByRefs(
       {
-        body: request,
+        body: {
+          entityRefs: request.entityRefs,
+          fields: request.fields,
+        },
+        query: {
+          filter: this.getFilterValue(request.filter),
+        },
       },
       options,
     );
@@ -345,8 +371,8 @@ export class CatalogClient implements CatalogApi {
     locationRef: string,
     options?: CatalogRequestOptions,
   ): Promise<Location | undefined> {
-    const all: { data: Location }[] = await this.requestRequired(
-      await this.apiClient.getLocation({ path: { id: locationRef } }, options),
+    const all = await this.requestRequired(
+      await this.apiClient.getLocations({}, options),
     );
     return all
       .map(r => r.data)
@@ -418,7 +444,7 @@ export class CatalogClient implements CatalogApi {
     }
   }
 
-  private async requestRequired<T = any>(response: Response): Promise<T> {
+  private async requestRequired<T>(response: TypedResponse<T>): Promise<T> {
     if (!response.ok) {
       throw await ResponseError.fromResponse(response);
     }

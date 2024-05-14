@@ -8,6 +8,7 @@
 
 import { AppConfig } from '@backstage/config';
 import { AuthCallback } from 'isomorphic-git';
+import { AuthService } from '@backstage/backend-plugin-api';
 import { AwsCredentialsManager } from '@backstage/integration-aws-node';
 import { AwsS3Integration } from '@backstage/integration';
 import { AzureDevOpsCredentialsProvider } from '@backstage/integration';
@@ -29,11 +30,11 @@ import { GiteaIntegration } from '@backstage/integration';
 import { GithubCredentialsProvider } from '@backstage/integration';
 import { GithubIntegration } from '@backstage/integration';
 import { GitLabIntegration } from '@backstage/integration';
+import { HarnessIntegration } from '@backstage/integration';
 import { HostDiscovery as HostDiscovery_2 } from '@backstage/backend-app-api';
+import { HttpAuthService } from '@backstage/backend-plugin-api';
 import { IdentityService } from '@backstage/backend-plugin-api';
-import { isChildPath } from '@backstage/cli-common';
-import { Knex } from 'knex';
-import knexFactory from 'knex';
+import { isChildPath as isChildPath_2 } from '@backstage/backend-plugin-api';
 import { KubeConfig } from '@kubernetes/client-node';
 import { LifecycleService } from '@backstage/backend-plugin-api';
 import { LoadConfigOptionsRemote } from '@backstage/config-loader';
@@ -54,6 +55,8 @@ import { ReadTreeResponseFile } from '@backstage/backend-plugin-api';
 import { ReadUrlOptions } from '@backstage/backend-plugin-api';
 import { ReadUrlResponse } from '@backstage/backend-plugin-api';
 import { RequestHandler } from 'express';
+import { resolvePackagePath as resolvePackagePath_2 } from '@backstage/backend-plugin-api';
+import { resolveSafeChildPath as resolveSafeChildPath_2 } from '@backstage/backend-plugin-api';
 import { RootConfigService } from '@backstage/backend-plugin-api';
 import { Router } from 'express';
 import { SchedulerService } from '@backstage/backend-plugin-api';
@@ -65,11 +68,12 @@ import { ServiceRef } from '@backstage/backend-plugin-api';
 import { TokenManagerService as TokenManager } from '@backstage/backend-plugin-api';
 import { TransportStreamOptions } from 'winston-transport';
 import { UrlReaderService as UrlReader } from '@backstage/backend-plugin-api';
+import { UserInfoService } from '@backstage/backend-plugin-api';
 import { V1PodTemplateSpec } from '@kubernetes/client-node';
 import * as winston from 'winston';
 import { Writable } from 'stream';
 
-// @public
+// @public @deprecated
 export type AuthCallbackOptions = {
   onAuth: AuthCallback;
   logger?: LoggerService;
@@ -223,14 +227,37 @@ export interface ContainerRunner {
 }
 
 // @public
-export function createDatabaseClient(
-  dbConfig: Config,
-  overrides?: Partial<Knex.Config>,
-  deps?: {
-    lifecycle: LifecycleService;
-    pluginMetadata: PluginMetadataService;
+export function createLegacyAuthAdapters<
+  TOptions extends {
+    auth?: AuthService;
+    httpAuth?: HttpAuthService;
+    userInfo?: UserInfoService;
+    identity?: IdentityService;
+    tokenManager?: TokenManager;
+    discovery: PluginEndpointDiscovery;
   },
-): knexFactory.Knex<any, any[]>;
+  TAdapters = (TOptions extends {
+    auth?: AuthService;
+  }
+    ? {
+        auth: AuthService;
+      }
+    : {}) &
+    (TOptions extends {
+      httpAuth?: HttpAuthService;
+    }
+      ? {
+          httpAuth: HttpAuthService;
+        }
+      : {}) &
+    (TOptions extends {
+      userInfo?: UserInfoService;
+    }
+      ? {
+          userInfo: UserInfoService;
+        }
+      : {}),
+>(options: TOptions): TAdapters;
 
 // @public
 export function createRootLogger(
@@ -249,7 +276,7 @@ export function createStatusCheckRouter(options: {
 }): Promise<express.Router>;
 
 // @public
-export class DatabaseManager {
+export class DatabaseManager implements LegacyRootDatabaseService {
   forPlugin(
     pluginId: string,
     deps?: {
@@ -277,9 +304,9 @@ export class DockerContainerRunner implements ContainerRunner {
 }
 
 // @public
-export function ensureDatabaseExists(
+export function dropDatabase(
   dbConfig: Config,
-  ...databases: Array<string>
+  ...databaseNames: string[]
 ): Promise<void>;
 
 // @public
@@ -345,7 +372,7 @@ export function getRootLogger(): winston.Logger;
 // @public
 export function getVoidLogger(): winston.Logger;
 
-// @public
+// @public @deprecated
 export class Git {
   // (undocumented)
   add(options: { dir: string; filepath: string }): Promise<void>;
@@ -417,6 +444,7 @@ export class Git {
     force?: boolean;
   }): Promise<PushResult>;
   readCommit(options: { dir: string; sha: string }): Promise<ReadCommitResult>;
+  remove(options: { dir: string; filepath: string }): Promise<void>;
   resolveRef(options: { dir: string; ref: string }): Promise<string>;
 }
 
@@ -488,9 +516,27 @@ export class GitlabUrlReader implements UrlReader {
 }
 
 // @public
+export class HarnessUrlReader implements UrlReader {
+  constructor(integration: HarnessIntegration);
+  // (undocumented)
+  static factory: ReaderFactory;
+  // (undocumented)
+  read(url: string): Promise<Buffer>;
+  // (undocumented)
+  readTree(): Promise<ReadTreeResponse>;
+  // (undocumented)
+  readUrl(url: string, options?: ReadUrlOptions): Promise<ReadUrlResponse>;
+  // (undocumented)
+  search(): Promise<SearchResponse>;
+  // (undocumented)
+  toString(): string;
+}
+
+// @public
 export const HostDiscovery: typeof HostDiscovery_2;
 
-export { isChildPath };
+// @public @deprecated (undocumented)
+export const isChildPath: typeof isChildPath_2;
 
 // @public
 export function isDatabaseConflictError(e: unknown): boolean;
@@ -549,6 +595,11 @@ export const legacyPlugin: (
 ) => BackendFeature;
 
 // @public
+export type LegacyRootDatabaseService = {
+  forPlugin(pluginId: string): PluginDatabaseManager;
+};
+
+// @public
 export function loadBackendConfig(options: {
   logger: LoggerService;
   remote?: LoadConfigOptionsRemote;
@@ -593,6 +644,21 @@ export interface PluginCacheManager {
 export { PluginDatabaseManager };
 
 export { PluginEndpointDiscovery };
+
+// @public
+export interface PullOptions {
+  // (undocumented)
+  [key: string]: unknown;
+  // (undocumented)
+  authconfig?: {
+    username?: string;
+    password?: string;
+    auth?: string;
+    email?: string;
+    serveraddress?: string;
+    [key: string]: unknown;
+  };
+}
 
 // @public
 export type ReaderFactory = (options: {
@@ -675,11 +741,11 @@ export type RequestLoggingHandlerFactory = (
   logger?: LoggerService,
 ) => RequestHandler;
 
-// @public
-export function resolvePackagePath(name: string, ...paths: string[]): string;
+// @public @deprecated (undocumented)
+export const resolvePackagePath: typeof resolvePackagePath_2;
 
-// @public
-export function resolveSafeChildPath(base: string, path: string): string;
+// @public @deprecated (undocumented)
+export const resolveSafeChildPath: typeof resolveSafeChildPath_2;
 
 // @public
 export type RunContainerOptions = {
@@ -692,6 +758,7 @@ export type RunContainerOptions = {
   envVars?: Record<string, string>;
   pullImage?: boolean;
   defaultUser?: boolean;
+  pullOptions?: PullOptions;
 };
 
 export { SearchOptions };
@@ -708,7 +775,7 @@ export class ServerTokenManager implements TokenManager {
   static fromConfig(
     config: Config,
     options: ServerTokenManagerOptions,
-  ): ServerTokenManager;
+  ): TokenManager;
   // (undocumented)
   getToken(): Promise<{
     token: string;
@@ -718,6 +785,7 @@ export class ServerTokenManager implements TokenManager {
 
 // @public
 export interface ServerTokenManagerOptions {
+  allowDisabledTokenManager?: boolean;
   logger: LoggerService;
 }
 
@@ -753,7 +821,7 @@ export function setRootLogger(newLogger: winston.Logger): void;
 // @public @deprecated
 export const SingleHostDiscovery: typeof HostDiscovery_2;
 
-// @public
+// @public @deprecated
 export type StaticAuthOptions = {
   username?: string;
   password?: string;

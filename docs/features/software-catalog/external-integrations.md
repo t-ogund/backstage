@@ -55,7 +55,7 @@ Some defining traits of entity providers:
 
 The recommended way of instantiating the catalog backend classes is to use the
 `CatalogBuilder`, as illustrated in the
-[example backend here](https://github.com/backstage/backstage/blob/master/packages/backend/src/plugins/catalog.ts).
+[example backend here](https://github.com/backstage/backstage/blob/master/packages/backend-legacy/src/plugins/catalog.ts).
 We will create a new
 [`EntityProvider`](https://github.com/backstage/backstage/blob/master/plugins/catalog-node/src/api/provider.ts)
 subclass that can be added to this catalog builder.
@@ -279,6 +279,45 @@ the `connect` call has been made to the provider.
 Start up the backend - it should now start reading from the previously
 registered location and you'll see your entities start to appear in Backstage.
 
+#### New Backend System
+
+To install the provider using the new backend system you will need to create a module and add it to your backend. The following is a very simplified example of what that would look like:
+
+```ts title="packages/backend/src/index.ts"
+import { createBackend } from '@backstage/backend-defaults';
+import {
+  coreServices,
+  createBackendModule,
+} from '@backstage/backend-plugin-api';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
+import { FrobsProvider } from './path/to/class';
+
+export const catalogModuleFrobsProvider = createBackendModule({
+  pluginId: 'catalog',
+  moduleId: 'frobs-provider',
+  register(env) {
+    env.registerInit({
+      deps: {
+        catalog: catalogProcessingExtensionPoint,
+        reader: coreServices.urlReader,
+      },
+      async init({ catalog, reader }) {
+        catalog.addEntityProvider(new FrobsProvider('dev', reader));
+      },
+    });
+  },
+});
+
+const backend = createBackend();
+
+backend.add(import('@backstage/plugin-catalog-backend/alpha'));
+backend.add(catalogModuleFrobsProvider);
+
+// Other plugins ...
+
+backend.start();
+```
+
 ### Example User Entity Provider
 
 If you have a 3rd party entity provider such as an internal HR system that you wish to use you are not limited to using our entity providers, (or simply wish to add to existing entity providers with your own data).
@@ -492,7 +531,7 @@ does so!
 
 The recommended way of instantiating the catalog backend classes is to use the
 `CatalogBuilder`, as illustrated in the
-[example backend here](https://github.com/backstage/backstage/blob/master/packages/backend/src/plugins/catalog.ts).
+[example backend here](https://github.com/backstage/backstage/blob/master/packages/backend-legacy/src/plugins/catalog.ts).
 We will create a new
 [`CatalogProcessor`](https://github.com/backstage/backstage/blob/master/plugins/catalog-node/src/api/processor.ts)
 subclass that can be added to this catalog builder.
@@ -585,6 +624,45 @@ export default async function createPlugin(
 
 Start up the backend - it should now start reading from the previously
 registered location and you'll see your entities start to appear in Backstage.
+
+#### Installing Processor Using New Backend System
+
+To install the processor using the new backend system you will need to create a module and add it to your backend. The following is a very simplified example of what that would look like:
+
+```ts title="packages/backend/src/index.ts"
+import { createBackend } from '@backstage/backend-defaults';
+import {
+  coreServices,
+  createBackendModule,
+} from '@backstage/backend-plugin-api';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
+import { SystemXReaderProcessor } from '../path/to/class';
+
+export const catalogModuleSystemXReaderProcessor = createBackendModule({
+  pluginId: 'catalog',
+  moduleId: 'system-x-reader-processor',
+  register(env) {
+    env.registerInit({
+      deps: {
+        catalog: catalogProcessingExtensionPoint,
+        reader: coreServices.urlReader,
+      },
+      async init({ catalog, reader }) {
+        catalog.addProcessor(new SystemXReaderProcessor(reader));
+      },
+    });
+  },
+});
+
+const backend = createBackend();
+
+backend.add(import('@backstage/plugin-catalog-backend/alpha'));
+backend.add(catalogModuleSystemXReaderProcessor);
+
+// Other plugins ...
+
+backend.start();
+```
 
 ### Caching processing results
 
@@ -679,12 +757,171 @@ export class SystemXReaderProcessor implements CatalogProcessor {
       if (error.name === 'NotModifiedError' && cacheItem) {
         // The ETag matches and we have a cached value from the previous run.
         emit(processingResult.entity(location, cacheItem.entity));
+      } else {
+        const message = `Unable to read ${location.type}, ${error}`;
+        emit(processingResult.generalError(location, message));
       }
-      const message = `Unable to read ${location.type}, ${error}`;
-      emit(processingResult.generalError(location, message));
     }
 
     return true;
   }
 }
+```
+
+### Supporting different metadata file formats
+
+Sometimes you might already have files in GitHub or some provider that Backstage already supports but the metadata format that you use is not the same as `catalog-info.yaml` files. In this case you can implement a custom parser that can read the files and convert them on-the-fly to the `Entity` format that Backstage expects, and it will integrate seamlessly into Catalog so that you can use things like the `GithubEntityProvider` to read these files.
+
+What you will need to do is to provide a custom `CatalogProcessorParser` and provide that to `builder.setEntityDataParser`.
+
+Let's say my format looks something like this:
+
+```yaml
+id: my-service
+type: service
+author: user@backstage.com
+```
+
+We need to build a custom parser that can read this format and convert it to the `Entity` format that Backstage expects.
+
+```ts title="packages/backend/src/lib/customEntityDataParser.ts"
+import {
+  CatalogProcessorParser,
+  CatalogProcessorResult,
+  LocationSpec,
+  processingResult,
+} from '@backstage/plugin-catalog-node';
+import yaml from 'yaml';
+import {
+  Entity,
+  stringifyLocationRef,
+  ANNOTATION_ORIGIN_LOCATION,
+  ANNOTATION_LOCATION,
+} from '@backstage/catalog-model';
+import _ from 'lodash';
+import parseGitUrl from 'git-url-parse';
+
+// This implementation will map whatever your own format is into valid Entity objects.
+const makeEntityFromCustomFormatJson = (
+  component: { id: string; type: string; author: string },
+  location: LocationSpec,
+): Entity => {
+  return {
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: {
+      name: component.id,
+      namespace: 'default',
+      annotations: {
+        [ANNOTATION_LOCATION]: `${location.type}:${location.target}`,
+        [ANNOTATION_ORIGIN_LOCATION]: `${location.type}:${location.target}`,
+      },
+    }
+    spec: {
+      type: component.type,
+      owner: component.author,
+      lifecycle: 'experimental'
+    }
+  }
+};
+
+export const customEntityDataParser: CatalogProcessorParser = async function* ({
+  data,
+  location,
+}) {
+  let documents: yaml.Document.Parsed[];
+  try {
+    // let's treat the incoming file always as yaml, you can of course change this if your format is not yaml.
+    documents = yaml.parseAllDocuments(data.toString('utf8')).filter(d => d);
+  } catch (e) {
+    // if we failed to parse as yaml throw some errors.
+    const loc = stringifyLocationRef(location);
+    const message = `Failed to parse YAML at ${loc}, ${e}`;
+    yield processingResult.generalError(location, message);
+    return;
+  }
+
+  for (const document of documents) {
+    // If there's errors parsing the document as yaml, we should throw an error.
+    if (document.errors?.length) {
+      const loc = stringifyLocationRef(location);
+      const message = `YAML error at ${loc}, ${document.errors[0]}`;
+      yield processingResult.generalError(location, message);
+    } else {
+      // Convert the document to JSON
+      const json = document.toJSON();
+      if (_.isPlainObject(json)) {
+        // Is this a catalog-info.yaml file?
+        if (json.apiVersion) {
+          yield processingResult.entity(location, json as Entity);
+
+        // let's treat this like it's our custom format instead.
+        } else {
+          yield processingResult.entity(
+            location,
+            makeEntityFromCustomFormatJson(json, location),
+          );
+        }
+      } else if (json === null) {
+        // Ignore null values, these happen if there is an empty document in the
+        // YAML file, for example if --- is added to the end of the file.
+      } else {
+        // We don't support this format.
+        const message = `Expected object at root, got ${typeof json}`;
+        yield processingResult.generalError(location, message);
+      }
+    }
+  }
+}
+```
+
+This is a lot of code right now, as this is a pretty niche use-case, so we don't currently provide many helpers for you to be able to provide custom implementations easier or to compose together different parsers.
+
+You then should be able to provide this `customEntityDataParser` to the `CatalogBuilder`:
+
+```ts title="packages/backend/src/plugins/catalog.ts"
+import { customEntityDataParser } from '../lib/customEntityDataParser';
+
+...
+
+builder.setEntityDataParser(customEntityDataParser);
+```
+
+#### Using Custom Entity Data Parser with New Backend System
+
+To use a custom entity data parse with the new backend system you will need to create a module and add it to your backend. The following is a very simplified example of what that would look like:
+
+```ts title="packages/backend/src/index.ts"
+import { createBackend } from '@backstage/backend-defaults';
+import {
+  coreServices,
+  createBackendModule,
+} from '@backstage/backend-plugin-api';
+import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
+import { customEntityDataParser } from '../lib/customEntityDataParser';
+
+export const catalogModuleCustomDataParser = createBackendModule({
+  pluginId: 'catalog',
+  moduleId: 'custom-data-parser',
+  register(env) {
+    env.registerInit({
+      deps: {
+        catalog: catalogModelExtensionPoint,
+        reader: coreServices.urlReader,
+      },
+      async init({ catalog, reader }) {
+        catalog.setEntityDataParser(customEntityDataParser);
+      },
+    });
+  },
+});
+
+const backend = createBackend();
+
+backend.add(import('@backstage/plugin-catalog-backend/alpha'));
+backend.add(catalogModuleCustomDataParser);
+
+// Other plugins ...
+
+backend.start();
 ```

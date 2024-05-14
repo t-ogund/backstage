@@ -152,7 +152,7 @@ export type ListActionsResponse = Array<Action>;
 
 // @public
 export type LogEvent = {
-  type: 'log' | 'completion' | 'cancelled';
+  type: 'log' | 'completion' | 'cancelled' | 'recovered';
   body: {
     message: string;
     stepId?: string;
@@ -277,6 +277,7 @@ export type ScaffolderOutputText = {
   title?: string;
   icon?: string;
   content?: string;
+  default?: boolean;
 };
 
 // @public
@@ -454,7 +455,9 @@ export interface ScaffolderUseTemplateSecrets {
 
 // @public
 export const SecretsContextProvider: (
-  props: PropsWithChildren<{}>,
+  props: PropsWithChildren<{
+    initialSecrets?: Record<string, string>;
+  }>,
 ) => React_2.JSX.Element;
 
 // @public

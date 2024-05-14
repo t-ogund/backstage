@@ -21,6 +21,7 @@ import {
   resolve as resolvePath,
   relative as relativePath,
 } from 'path';
+import pLimit from 'p-limit';
 import { tmpdir } from 'os';
 import tar, { CreateOptions, FileOptions } from 'tar';
 import partition from 'lodash/partition';
@@ -102,6 +103,11 @@ type Options = {
    * command performance.
    */
   alwaysYarnPack?: boolean;
+
+  /**
+   * If set to true, the generated code will be minified.
+   */
+  minify?: boolean;
 };
 
 function prefixLogFunc(prefix: string, out: 'stdout' | 'stderr') {
@@ -204,8 +210,7 @@ export async function createDistWorkspace(
           packageJson: pkg.packageJson,
           outputs: outputs,
           logPrefix: `${chalk.cyan(relativePath(paths.targetRoot, pkg.dir))}: `,
-          // No need to detect these for the backend builds, we assume no minification or types
-          minify: false,
+          minify: options.minify,
         });
       }
     }
@@ -304,10 +309,6 @@ async function moveToDistWorkspace(
     await run('yarn', ['pack', '--filename', archivePath], {
       cwd: target.dir,
     });
-    // TODO(Rugvip): yarn pack doesn't call postpack, once the bug is fixed this can be removed
-    if (target.packageJson?.scripts?.postpack) {
-      await run('yarn', ['postpack'], { cwd: target.dir });
-    }
 
     const outputDir = relativePath(paths.targetRoot, target.dir);
     const absoluteOutputPath = resolvePath(workspaceDir, outputDir);
@@ -352,9 +353,11 @@ async function moveToDistWorkspace(
   }
 
   // Repacking in parallel is much faster and safe for all packages outside of the Backstage repo
+  // Limit concurrency to 10 to avoid resource exhaustion on larger monorepos.
+  const limit = pLimit(10);
   await Promise.all(
-    safePackages.map(async (target, index) =>
-      pack(target, `temp-package-${index}.tgz`),
+    safePackages.map((target, index) =>
+      limit(() => pack(target, `temp-package-${index}.tgz`)),
     ),
   );
 }

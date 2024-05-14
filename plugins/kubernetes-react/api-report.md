@@ -4,7 +4,7 @@
 
 ```ts
 import { ApiRef } from '@backstage/core-plugin-api';
-import { AsyncState } from 'react-use/lib/useAsyncFn';
+import { AsyncState } from 'react-use/esm/useAsyncFn';
 import { ClientContainerStatus } from '@backstage/plugin-kubernetes-common';
 import { ClientPodStatus } from '@backstage/plugin-kubernetes-common';
 import { ClusterAttributes } from '@backstage/plugin-kubernetes-common';
@@ -29,6 +29,7 @@ import { ObjectsByEntityResponse } from '@backstage/plugin-kubernetes-common';
 import { OpenIdConnectApi } from '@backstage/core-plugin-api';
 import { Pod } from 'kubernetes-models/v1';
 import { Pod as Pod_2 } from 'kubernetes-models/v1/Pod';
+import { ProfileInfoApi } from '@backstage/core-plugin-api';
 import { default as React_2 } from 'react';
 import * as React_3 from 'react';
 import { TypeMeta } from '@kubernetes-models/base';
@@ -175,11 +176,13 @@ export type ErrorPanelProps = {
 // @public (undocumented)
 export const ErrorReporting: ({
   detectedErrors,
+  clusters,
 }: ErrorReportingProps) => React_3.JSX.Element;
 
 // @public (undocumented)
 export type ErrorReportingProps = {
   detectedErrors: DetectedErrorsByCluster;
+  clusters: ClusterAttributes[];
 };
 
 // @public
@@ -251,13 +254,13 @@ export type FormatClusterLinkOptions = {
 };
 
 // @public (undocumented)
-export function getDefaultFormatters(_deps: {}): Record<
-  string,
-  ClusterLinksFormatter
->;
+export function getDefaultFormatters(deps: {
+  googleAuthApi: ProfileInfoApi;
+}): Record<string, ClusterLinksFormatter>;
 
 // @public (undocumented)
 export class GkeClusterLinksFormatter implements ClusterLinksFormatter {
+  constructor(googleAuthApi: ProfileInfoApi | undefined);
   // (undocumented)
   formatClusterLink(options: ClusterLinksFormatterOptions): Promise<URL>;
 }
@@ -652,7 +655,7 @@ export interface PendingPodContentProps {
 // @public
 export interface PodAndErrors {
   // (undocumented)
-  clusterName: string;
+  cluster: ClusterAttributes;
   // (undocumented)
   errors: DetectedError[];
   // (undocumented)
@@ -684,12 +687,12 @@ export const PodExecTerminal: (
 // @public
 export const PodExecTerminalDialog: (
   props: PodExecTerminalProps,
-) => React_2.JSX.Element;
+) => false | React_2.JSX.Element | undefined;
 
 // @public
 export interface PodExecTerminalProps {
   // (undocumented)
-  clusterName: string;
+  cluster: ClusterAttributes;
   // (undocumented)
   containerName: string;
   // (undocumented)
@@ -747,7 +750,7 @@ export const PodNamesWithMetricsContext: React_2.Context<
 // @public
 export interface PodScope {
   // (undocumented)
-  clusterName: string;
+  cluster: ClusterAttributes;
   // (undocumented)
   podName: string;
   // (undocumented)

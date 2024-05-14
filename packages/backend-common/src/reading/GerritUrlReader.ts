@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
-import { NotFoundError, NotModifiedError } from '@backstage/errors';
+import { Base64Decode } from 'base64-stream';
+import concatStream from 'concat-stream';
+import fs from 'fs-extra';
+import fetch, { Response } from 'node-fetch';
+import os from 'os';
+import { join as joinPath } from 'path';
+import { Readable, pipeline as pipelineCb } from 'stream';
+import tar from 'tar';
+import { promisify } from 'util';
 import {
   GerritIntegration,
   ScmIntegrations,
@@ -26,16 +34,7 @@ import {
   parseGerritGitilesUrl,
   parseGerritJsonResponse,
 } from '@backstage/integration';
-import { Base64Decode } from 'base64-stream';
-import concatStream from 'concat-stream';
-import fs from 'fs-extra';
-import fetch, { Response } from 'node-fetch';
-import os from 'os';
-import { join as joinPath } from 'path';
-import { Readable, pipeline as pipelineCb } from 'stream';
-import tar from 'tar';
-import { promisify } from 'util';
-import { Git } from '../scm';
+import { NotFoundError, NotModifiedError } from '@backstage/errors';
 import {
   ReadTreeOptions,
   ReadTreeResponse,
@@ -46,8 +45,15 @@ import {
   SearchResponse,
   UrlReader,
 } from './types';
+import { Git } from './git';
 
 const pipeline = promisify(pipelineCb);
+
+export const GITILES_BASE_URL_DEPRECATION_MESSSAGE = `A gitilesBaseUrl must be provided \
+for the gerrit integration to work. You can disable this check by setting \
+DISABLE_GERRIT_GITILES_REQUIREMENT=1 but this will be removed in a future release. If you \
+are not able to use the gitiles gerrit plugin, please open an issue towards \
+https://github.com/backstage/backstage`;
 
 const createTemporaryDirectory = async (workDir: string): Promise<string> =>
   await fs.mkdtemp(joinPath(workDir, '/gerrit-clone-'));
@@ -81,6 +87,12 @@ export class GerritUrlReader implements UrlReader {
     const workDir =
       config.getOptionalString('backend.workingDirectory') ?? os.tmpdir();
     return integrations.gerrit.list().map(integration => {
+      if (
+        integration.config.gitilesBaseUrl === integration.config.baseUrl &&
+        process.env.DISABLE_GERRIT_GITILES_REQUIREMENT === undefined
+      ) {
+        throw new Error(GITILES_BASE_URL_DEPRECATION_MESSSAGE);
+      }
       const reader = new GerritUrlReader(
         integration,
         { treeResponseFactory },

@@ -27,21 +27,13 @@ import {
   RELATION_PROVIDES_API,
 } from '@backstage/catalog-model';
 import { createApp } from '@backstage/app-defaults';
-import {
-  AppRouter,
-  ConfigReader,
-  defaultConfigLoader,
-  FeatureFlagged,
-  FlatRoutes,
-} from '@backstage/core-app-api';
+import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
 import {
   AlertDisplay,
   OAuthRequestDialog,
   SignInPage,
 } from '@backstage/core-components';
 import { apiDocsPlugin, ApiExplorerPage } from '@backstage/plugin-api-docs';
-import { AzurePullRequestsPage } from '@backstage/plugin-azure-devops';
-
 import {
   CatalogEntityPage,
   CatalogIndexPage,
@@ -53,36 +45,26 @@ import {
   CatalogImportPage,
   catalogImportPlugin,
 } from '@backstage/plugin-catalog-import';
-import {
-  CostInsightsLabelDataflowInstructionsPage,
-  CostInsightsPage,
-  CostInsightsProjectGrowthInstructionsPage,
-} from '@backstage/plugin-cost-insights';
 import { orgPlugin } from '@backstage/plugin-org';
-import { ExplorePage } from '@backstage/plugin-explore';
-import { GcpProjectsPage } from '@backstage/plugin-gcp-projects';
 import { HomepageCompositionRoot, VisitListener } from '@backstage/plugin-home';
-import { LighthousePage } from '@backstage/plugin-lighthouse';
-import { NewRelicPage } from '@backstage/plugin-newrelic';
-import { LegacyScaffolderPage } from '@backstage/plugin-scaffolder/alpha';
+
 import { ScaffolderPage, scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import {
   ScaffolderFieldExtensions,
   ScaffolderLayouts,
 } from '@backstage/plugin-scaffolder-react';
 import { SearchPage } from '@backstage/plugin-search';
-import { TechRadarPage } from '@backstage/plugin-tech-radar';
 import {
   TechDocsIndexPage,
-  TechDocsReaderPage,
   techdocsPlugin,
+  TechDocsReaderPage,
 } from '@backstage/plugin-techdocs';
 import { TechDocsAddons } from '@backstage/plugin-techdocs-react';
 import {
   ExpandableNavigation,
+  LightBox,
   ReportIssue,
   TextSize,
-  LightBox,
 } from '@backstage/plugin-techdocs-module-addons-contrib';
 import {
   SettingsLayout,
@@ -96,31 +78,20 @@ import { apis } from './apis';
 import { entityPage } from './components/catalog/EntityPage';
 import { homePage } from './components/home/HomePage';
 import { Root } from './components/Root';
-import {
-  DelayingComponentFieldExtension,
-  LowerCaseValuePickerFieldExtension,
-} from './components/scaffolder/customScaffolderExtensions';
+import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
 import { defaultPreviewTemplate } from './components/scaffolder/defaultPreviewTemplate';
 import { searchPage } from './components/search/SearchPage';
 import { providers } from './identityProviders';
 import * as plugins from './plugins';
 
 import { techDocsPage } from './components/techdocs/TechDocsPage';
-import { ApacheAirflowPage } from '@backstage/plugin-apache-airflow';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
-import { PlaylistIndexPage, PlaylistPage } from '@backstage/plugin-playlist';
 import { TwoColumnLayout } from './components/scaffolder/customScaffolderLayouts';
-import { ScoreBoardPage } from '@oriflame/backstage-plugin-score-card';
-import { StackstormPage } from '@backstage/plugin-stackstorm';
-import { PuppetDbPage } from '@backstage/plugin-puppetdb';
-import { DevToolsPage } from '@backstage/plugin-devtools';
 import { customDevToolsPage } from './components/devtools/CustomDevToolsPage';
+import { DevToolsPage } from '@backstage/plugin-devtools';
 import { CatalogUnprocessedEntitiesPage } from '@backstage/plugin-catalog-unprocessed-entities';
-import {
-  createExtensionTree,
-  ExtensionTree,
-} from '@backstage/frontend-app-api';
+import { NotificationsPage } from '@backstage/plugin-notifications';
 
 const app = createApp({
   apis,
@@ -166,14 +137,6 @@ const app = createApp({
     });
   },
 });
-
-/* HIGHLY EXPERIMENTAL. DO NOT USE THIS IN YOUR APP */
-let extensionTree: ExtensionTree | undefined;
-if (process.env.NODE_ENV !== 'test') {
-  extensionTree = createExtensionTree({
-    config: ConfigReader.fromConfigs(await defaultConfigLoader()),
-  });
-}
 
 const routes = (
   <FlatRoutes>
@@ -236,93 +199,43 @@ const routes = (
         <LightBox />
       </TechDocsAddons>
     </Route>
-    <FeatureFlagged with="scaffolder-legacy">
-      <Route
-        path="/create"
-        element={
-          <LegacyScaffolderPage
-            groups={[
-              {
-                title: 'Recommended',
-                filter: entity =>
-                  entity?.metadata?.tags?.includes('recommended') ?? false,
-              },
-            ]}
-          />
-        }
-      >
-        <ScaffolderFieldExtensions>
-          <LowerCaseValuePickerFieldExtension />
-        </ScaffolderFieldExtensions>
-        <ScaffolderLayouts>
-          <TwoColumnLayout />
-        </ScaffolderLayouts>
-      </Route>
-    </FeatureFlagged>
-    <FeatureFlagged without="scaffolder-legacy">
-      <Route
-        path="/create"
-        element={
-          <ScaffolderPage
-            defaultPreviewTemplate={defaultPreviewTemplate}
-            groups={[
-              {
-                title: 'Recommended',
-                filter: entity =>
-                  entity?.metadata?.tags?.includes('recommended') ?? false,
-              },
-            ]}
-          />
-        }
-      >
-        <ScaffolderFieldExtensions>
-          <DelayingComponentFieldExtension />
-        </ScaffolderFieldExtensions>
-        <ScaffolderLayouts>
-          <TwoColumnLayout />
-        </ScaffolderLayouts>
-      </Route>
-    </FeatureFlagged>
-    <Route path="/explore" element={<ExplorePage />} />
     <Route
-      path="/tech-radar"
-      element={<TechRadarPage width={1500} height={800} />}
-    />
-    {
-      /* HIGHLY EXPERIMENTAL. DO NOT USE THIS IN YOUR APP */ extensionTree?.getRootRoutes() ??
-        null
-    }
-    <Route path="/lighthouse" element={<LighthousePage />} />
+      path="/create"
+      element={
+        <ScaffolderPage
+          defaultPreviewTemplate={defaultPreviewTemplate}
+          groups={[
+            {
+              title: 'Recommended',
+              filter: entity =>
+                entity?.metadata?.tags?.includes('recommended') ?? false,
+            },
+          ]}
+        />
+      }
+    >
+      <ScaffolderFieldExtensions>
+        <DelayingComponentFieldExtension />
+      </ScaffolderFieldExtensions>
+      <ScaffolderLayouts>
+        <TwoColumnLayout />
+      </ScaffolderLayouts>
+    </Route>
+
     <Route path="/api-docs" element={<ApiExplorerPage />} />
-    <Route path="/gcp-projects" element={<GcpProjectsPage />} />
-    <Route path="/newrelic" element={<NewRelicPage />} />
     <Route path="/search" element={<SearchPage />}>
       {searchPage}
     </Route>
-    <Route path="/cost-insights" element={<CostInsightsPage />} />
-    <Route
-      path="/cost-insights/investigating-growth"
-      element={<CostInsightsProjectGrowthInstructionsPage />}
-    />
-    <Route
-      path="/cost-insights/labeling-jobs"
-      element={<CostInsightsLabelDataflowInstructionsPage />}
-    />
+
     <Route path="/settings" element={<UserSettingsPage />}>
       <SettingsLayout.Route path="/advanced" title="Advanced">
         <AdvancedSettings />
       </SettingsLayout.Route>
     </Route>
-    <Route path="/azure-pull-requests" element={<AzurePullRequestsPage />} />
-    <Route path="/apache-airflow" element={<ApacheAirflowPage />} />
-    <Route path="/playlist" element={<PlaylistIndexPage />} />
-    <Route path="/playlist/:playlistId" element={<PlaylistPage />} />
-    <Route path="/score-board" element={<ScoreBoardPage />} />
-    <Route path="/stackstorm" element={<StackstormPage />} />
-    <Route path="/puppetdb" element={<PuppetDbPage />} />
     <Route path="/devtools" element={<DevToolsPage />}>
       {customDevToolsPage}
     </Route>
+    <Route path="/notifications" element={<NotificationsPage />} />
   </FlatRoutes>
 );
 
@@ -332,7 +245,7 @@ export default app.createRoot(
     <OAuthRequestDialog />
     <AppRouter>
       <VisitListener />
-      <Root extensionTree={extensionTree}>{routes}</Root>
+      <Root>{routes}</Root>
     </AppRouter>
   </>,
 );

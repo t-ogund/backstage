@@ -1,7 +1,6 @@
 # Scaffolder Frontend
 
-This is the React frontend for the default Backstage [software
-templates](https://backstage.io/docs/features/software-templates/).
+This is the React frontend for the default Backstage [software templates](https://backstage.io/docs/features/software-templates/).
 This package supplies interfaces related to showing available templates in the
 Backstage catalog and the workflow to create software using those templates.
 
@@ -20,7 +19,7 @@ the plugin, if you previously removed it.
 
 ```bash
 # From your Backstage root directory
-yarn add --cwd packages/app @backstage/plugin-scaffolder
+yarn --cwd packages/app add @backstage/plugin-scaffolder
 ```
 
 ### Add the plugin to your `packages/app`

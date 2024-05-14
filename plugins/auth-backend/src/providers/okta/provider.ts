@@ -14,16 +14,23 @@
  * limitations under the License.
  */
 
-import { AuthHandler, SignInResolver } from '../types';
+import { AuthHandler } from '../types';
 import { OAuthResult } from '../../lib/oauth';
 
 import { createAuthProviderIntegration } from '../createAuthProviderIntegration';
-import { createOAuthProviderFactory } from '@backstage/plugin-auth-node';
+import {
+  SignInResolver,
+  createOAuthProviderFactory,
+} from '@backstage/plugin-auth-node';
 import {
   adaptLegacyOAuthHandler,
   adaptLegacyOAuthSignInResolver,
 } from '../../lib/legacy';
 import { oktaAuthenticator } from '@backstage/plugin-auth-backend-module-okta-provider';
+import {
+  commonByEmailLocalPartResolver,
+  commonByEmailResolver,
+} from '../resolvers';
 
 /**
  * Auth provider integration for Okta auth
@@ -51,6 +58,17 @@ export const okta = createAuthProviderIntegration({
     });
   },
   resolvers: {
+    /**
+     * Looks up the user by matching their email local part to the entity name.
+     */
+    emailLocalPartMatchingUserEntityName: () => commonByEmailLocalPartResolver,
+    /**
+     * Looks up the user by matching their email to the entity email.
+     */
+    emailMatchingUserEntityProfileEmail: () => commonByEmailResolver,
+    /**
+     * Looks up the user by matching their email to the `okta.com/email` annotation.
+     */
     emailMatchingUserEntityAnnotation(): SignInResolver<OAuthResult> {
       return async (info, ctx) => {
         const { profile } = info;

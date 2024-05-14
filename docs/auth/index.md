@@ -10,12 +10,16 @@ configure Backstage to have any number of authentication providers, but only
 one of these will typically be used for sign-in, with the rest being used to provide
 access to external resources.
 
-> NOTE: Identity management and the Sign-In page in Backstage is NOT a method for blocking
-> access for unauthorized users. The identity system only serves to provide a personalized
-> experience and access to a Backstage Identity Token, which can be passed to backend plugins.
-> This also means that your Backstage backend APIs are by default unauthenticated.
-> Thus, if your Backstage instance is exposed to the Internet, anyone can access
-> information in the Backstage. You can learn more [here](../overview/threat-model.md#integrator-responsibilities).
+:::note Note
+
+Identity management and the Sign-In page in Backstage is NOT a method for blocking
+access for unauthorized users. The identity system only serves to provide a personalized
+experience and access to a Backstage Identity Token, which can be passed to backend plugins.
+This also means that your Backstage backend APIs are by default unauthenticated.
+Thus, if your Backstage instance is exposed to the Internet, anyone can access
+information in the Backstage. You can learn more [here](../overview/threat-model.md#integrator-responsibilities).
+
+:::
 
 ## Built-in Authentication Providers
 
@@ -35,6 +39,7 @@ Backstage comes with many common authentication providers in the core library:
 - [Okta](okta/provider.md)
 - [OAuth 2 Custom Proxy](oauth2-proxy/provider.md)
 - [OneLogin](onelogin/provider.md)
+- [VMware Cloud](vmware-cloud/provider.md)
 
 These built-in providers handle the authentication flow for a particular service
 including required scopes, callbacks, etc. These providers are each added to a
@@ -140,8 +145,12 @@ const app = createApp({
 });
 ```
 
-> NOTE: You can configure sign-in to use a redirect flow with no pop-up by adding
-> `enableExperimentalRedirectFlow: true` to the root of your `app-config.yaml`
+:::note Note
+
+You can configure sign-in to use a redirect flow with no pop-up by adding
+`enableExperimentalRedirectFlow: true` to the root of your `app-config.yaml`
+
+:::
 
 ## Sign-In with Proxy Providers
 

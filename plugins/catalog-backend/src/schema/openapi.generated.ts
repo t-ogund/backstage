@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Backstage Authors
+ * Copyright 2024 The Backstage Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import { createValidatedOpenApiRouter } from '@backstage/backend-openapi-utils';
 export const spec = {
   openapi: '3.0.3',
   info: {
-    title: '@backstage/plugin-catalog-backend',
+    title: 'catalog',
     version: '1',
     description:
       'The Backstage backend plugin that provides the Backstage catalog',
@@ -35,9 +35,6 @@ export const spec = {
   servers: [
     {
       url: '/',
-    },
-    {
-      url: 'catalog',
     },
   ],
   components: {
@@ -1110,6 +1107,11 @@ export const spec = {
             },
           },
         },
+        parameters: [
+          {
+            $ref: '#/components/parameters/filter',
+          },
+        ],
       },
     },
     '/entities/by-query': {
@@ -1420,6 +1422,62 @@ export const spec = {
         ],
       },
     },
+    '/locations/by-entity/{kind}/{namespace}/{name}': {
+      get: {
+        operationId: 'getLocationByEntity',
+        description: 'Get a location for entity.',
+        responses: {
+          '200': {
+            description: 'Ok',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Location',
+                },
+              },
+            },
+          },
+          default: {
+            $ref: '#/components/responses/ErrorResponse',
+          },
+        },
+        security: [
+          {},
+          {
+            JWT: [],
+          },
+        ],
+        parameters: [
+          {
+            in: 'path',
+            name: 'kind',
+            required: true,
+            allowReserved: true,
+            schema: {
+              type: 'string',
+            },
+          },
+          {
+            in: 'path',
+            name: 'namespace',
+            required: true,
+            allowReserved: true,
+            schema: {
+              type: 'string',
+            },
+          },
+          {
+            in: 'path',
+            name: 'name',
+            required: true,
+            allowReserved: true,
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+      },
+    },
     '/analyze-location': {
       post: {
         operationId: 'AnalyzeLocation',
@@ -1482,7 +1540,7 @@ export const spec = {
           '400': {
             description: 'Validation errors.',
             content: {
-              'application/json; charset=utf-8': {
+              'application/json': {
                 schema: {
                   type: 'object',
                   properties: {

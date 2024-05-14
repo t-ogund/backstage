@@ -67,6 +67,22 @@ export interface Config {
           };
         };
 
+    /**
+     * An absolute path to a directory that can be used as a working dir, for
+     * example as scratch space for large operations.
+     *
+     * @remarks
+     *
+     * Note that this must be an absolute path.
+     *
+     * If not set, the operating system's designated temporary directory is
+     * commonly used, but that is implementation defined per plugin.
+     *
+     * Plugins are encouraged to heed this config setting if present, to allow
+     * deployment in severely locked-down or limited environments.
+     */
+    workingDirectory?: string;
+
     /** Database connection configuration, select base database type using the `client` field */
     database: {
       /** Default database client to use */
@@ -95,6 +111,13 @@ export interface Config {
        * Defaults to true if unspecified.
        */
       ensureExists?: boolean;
+      /**
+       * Whether to ensure the given database schema exists by creating it if it does not.
+       * Defaults to false if unspecified.
+       *
+       * NOTE: Currently only supported by the `pg` client when pluginDivisionMode: schema
+       */
+      ensureSchemaExists?: boolean;
       /**
        * How plugins databases are managed/divided in the provided database instance.
        *
@@ -131,6 +154,13 @@ export interface Config {
            * Defaults to base config if unspecified.
            */
           ensureExists?: boolean;
+          /**
+           * Whether to ensure the given database schema exists by creating it if it does not.
+           * Defaults to false if unspecified.
+           *
+           * NOTE: Currently only supported by the `pg` client when pluginDivisionMode: schema
+           */
+          ensureSchemaExists?: boolean;
           /**
            * Arbitrary config object to pass to knex when initializing
            * (https://knexjs.org/#Installation-client). Most notable is the

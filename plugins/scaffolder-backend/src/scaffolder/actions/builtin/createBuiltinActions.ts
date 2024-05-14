@@ -22,14 +22,17 @@ import {
   GithubCredentialsProvider,
   ScmIntegrations,
 } from '@backstage/integration';
-import { TemplateAction } from '@backstage/plugin-scaffolder-node';
+import {
+  TemplateAction,
+  TemplateFilter,
+  TemplateGlobal,
+} from '@backstage/plugin-scaffolder-node';
 import {
   createCatalogRegisterAction,
   createCatalogWriteAction,
   createFetchCatalogEntityAction,
 } from './catalog';
 
-import { TemplateFilter, TemplateGlobal } from '../../../lib';
 import { createDebugLogAction, createWaitAction } from './debug';
 import {
   createFetchPlainAction,
@@ -55,12 +58,17 @@ import {
 
 import { createPublishAzureAction } from '@backstage/plugin-scaffolder-backend-module-azure';
 
+import { createPublishBitbucketAction } from '@backstage/plugin-scaffolder-backend-module-bitbucket';
+
 import {
-  createPublishBitbucketAction,
   createPublishBitbucketCloudAction,
+  createBitbucketPipelinesRunAction,
+} from '@backstage/plugin-scaffolder-backend-module-bitbucket-cloud';
+
+import {
   createPublishBitbucketServerAction,
   createPublishBitbucketServerPullRequestAction,
-} from '@backstage/plugin-scaffolder-backend-module-bitbucket';
+} from '@backstage/plugin-scaffolder-backend-module-bitbucket-server';
 
 import {
   createPublishGerritAction,
@@ -69,8 +77,12 @@ import {
 
 import {
   createPublishGitlabAction,
+  createGitlabRepoPushAction,
   createPublishGitlabMergeRequestAction,
 } from '@backstage/plugin-scaffolder-backend-module-gitlab';
+
+import { createPublishGiteaAction } from '@backstage/plugin-scaffolder-backend-module-gitea';
+import { AuthService } from '@backstage/backend-plugin-api';
 
 /**
  * The options passed to {@link createBuiltinActions}
@@ -89,6 +101,10 @@ export interface CreateBuiltInActionsOptions {
    * The {@link @backstage/catalog-client#CatalogApi} that will be used in the default actions.
    */
   catalogClient: CatalogApi;
+  /**
+   * The {@link @backstage/backend-plugin-api#AuthService} that will be used in the default actions.
+   */
+  auth?: AuthService;
   /**
    * The {@link @backstage/config#Config} that will be used in the default actions.
    */
@@ -118,6 +134,7 @@ export const createBuiltinActions = (
     reader,
     integrations,
     catalogClient,
+    auth,
     config,
     additionalTemplateFilters,
     additionalTemplateGlobals,
@@ -149,6 +166,10 @@ export const createBuiltinActions = (
       integrations,
       config,
     }),
+    createPublishGiteaAction({
+      integrations,
+      config,
+    }),
     createPublishGithubAction({
       integrations,
       config,
@@ -157,12 +178,16 @@ export const createBuiltinActions = (
     createPublishGithubPullRequestAction({
       integrations,
       githubCredentialsProvider,
+      config,
     }),
     createPublishGitlabAction({
       integrations,
       config,
     }),
     createPublishGitlabMergeRequestAction({
+      integrations,
+    }),
+    createGitlabRepoPushAction({
       integrations,
     }),
     createPublishBitbucketAction({
@@ -187,8 +212,8 @@ export const createBuiltinActions = (
     }),
     createDebugLogAction(),
     createWaitAction(),
-    createCatalogRegisterAction({ catalogClient, integrations }),
-    createFetchCatalogEntityAction({ catalogClient }),
+    createCatalogRegisterAction({ catalogClient, integrations, auth }),
+    createFetchCatalogEntityAction({ catalogClient, auth }),
     createCatalogWriteAction(),
     createFilesystemDeleteAction(),
     createFilesystemRenameAction(),
@@ -222,6 +247,9 @@ export const createBuiltinActions = (
     createGithubAutolinksAction({
       integrations,
       githubCredentialsProvider,
+    }),
+    createBitbucketPipelinesRunAction({
+      integrations,
     }),
   ];
 

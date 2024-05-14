@@ -14,25 +14,31 @@
  * limitations under the License.
  */
 import {
-  createBackendPlugin,
   coreServices,
+  createBackendPlugin,
 } from '@backstage/backend-plugin-api';
+import { Entity, Validators } from '@backstage/catalog-model';
 import { CatalogBuilder, CatalogPermissionRuleInput } from './CatalogBuilder';
 import {
-  CatalogAnalysisExtensionPoint,
   catalogAnalysisExtensionPoint,
-  CatalogProcessingExtensionPoint,
-  catalogProcessingExtensionPoint,
+  CatalogModelExtensionPoint,
+  catalogModelExtensionPoint,
   CatalogPermissionExtensionPoint,
   catalogPermissionExtensionPoint,
+  CatalogProcessingExtensionPoint,
+  catalogProcessingExtensionPoint,
 } from '@backstage/plugin-catalog-node/alpha';
 import {
   CatalogProcessor,
+  CatalogProcessorParser,
   EntityProvider,
+  LocationAnalyzer,
+  PlaceholderResolver,
   ScmLocationAnalyzer,
 } from '@backstage/plugin-catalog-node';
-import { loggerToWinstonLogger } from '@backstage/backend-common';
-import { PlaceholderResolver } from '../modules';
+import { merge } from 'lodash';
+import { Permission } from '@backstage/plugin-permission-common';
+import { ForwardedError } from '@backstage/errors';
 
 class CatalogProcessingExtensionPointImpl
   implements CatalogProcessingExtensionPoint
@@ -40,6 +46,10 @@ class CatalogProcessingExtensionPointImpl
   #processors = new Array<CatalogProcessor>();
   #entityProviders = new Array<EntityProvider>();
   #placeholderResolvers: Record<string, PlaceholderResolver> = {};
+  #onProcessingErrorHandler?: (event: {
+    unprocessedEntity: Entity;
+    errors: Error[];
+  }) => Promise<void> | void;
 
   addProcessor(
     ...processors: Array<CatalogProcessor | Array<CatalogProcessor>>
@@ -61,6 +71,15 @@ class CatalogProcessingExtensionPointImpl
     this.#placeholderResolvers[key] = resolver;
   }
 
+  setOnProcessingErrorHandler(
+    handler: (event: {
+      unprocessedEntity: Entity;
+      errors: Error[];
+    }) => Promise<void> | void,
+  ) {
+    this.#onProcessingErrorHandler = handler;
+  }
+
   get processors() {
     return this.#processors;
   }
@@ -72,26 +91,21 @@ class CatalogProcessingExtensionPointImpl
   get placeholderResolvers() {
     return this.#placeholderResolvers;
   }
-}
 
-class CatalogAnalysisExtensionPointImpl
-  implements CatalogAnalysisExtensionPoint
-{
-  #locationAnalyzers = new Array<ScmLocationAnalyzer>();
-
-  addLocationAnalyzer(analyzer: ScmLocationAnalyzer): void {
-    this.#locationAnalyzers.push(analyzer);
-  }
-
-  get locationAnalyzers() {
-    return this.#locationAnalyzers;
+  get onProcessingErrorHandler() {
+    return this.#onProcessingErrorHandler;
   }
 }
 
 class CatalogPermissionExtensionPointImpl
   implements CatalogPermissionExtensionPoint
 {
+  #permissions = new Array<Permission>();
   #permissionRules = new Array<CatalogPermissionRuleInput>();
+
+  addPermissions(...permission: Array<Permission | Array<Permission>>): void {
+    this.#permissions.push(...permission.flat());
+  }
 
   addPermissionRules(
     ...rules: Array<
@@ -101,8 +115,39 @@ class CatalogPermissionExtensionPointImpl
     this.#permissionRules.push(...rules.flat());
   }
 
+  get permissions() {
+    return this.#permissions;
+  }
+
   get permissionRules() {
     return this.#permissionRules;
+  }
+}
+
+class CatalogModelExtensionPointImpl implements CatalogModelExtensionPoint {
+  #fieldValidators: Partial<Validators> = {};
+
+  setFieldValidators(validators: Partial<Validators>): void {
+    merge(this.#fieldValidators, validators);
+  }
+
+  get fieldValidators() {
+    return this.#fieldValidators;
+  }
+
+  #entityDataParser?: CatalogProcessorParser;
+
+  setEntityDataParser(parser: CatalogProcessorParser): void {
+    if (this.#entityDataParser) {
+      throw new Error(
+        'Attempted to install second EntityDataParser. Only one can be set.',
+      );
+    }
+    this.#entityDataParser = parser;
+  }
+
+  get entityDataParser() {
+    return this.#entityDataParser;
   }
 }
 
@@ -120,17 +165,38 @@ export const catalogPlugin = createBackendPlugin({
       processingExtensions,
     );
 
-    const analysisExtensions = new CatalogAnalysisExtensionPointImpl();
-    env.registerExtensionPoint(
-      catalogAnalysisExtensionPoint,
-      analysisExtensions,
-    );
+    let locationAnalyzerFactory:
+      | ((options: {
+          scmLocationAnalyzers: ScmLocationAnalyzer[];
+        }) => Promise<{ locationAnalyzer: LocationAnalyzer }>)
+      | undefined = undefined;
+    const scmLocationAnalyzers = new Array<ScmLocationAnalyzer>();
+    env.registerExtensionPoint(catalogAnalysisExtensionPoint, {
+      setLocationAnalyzer(analyzerOrFactory) {
+        if (locationAnalyzerFactory) {
+          throw new Error('LocationAnalyzer has already been set');
+        }
+        if (typeof analyzerOrFactory === 'function') {
+          locationAnalyzerFactory = analyzerOrFactory;
+        } else {
+          locationAnalyzerFactory = async () => ({
+            locationAnalyzer: analyzerOrFactory,
+          });
+        }
+      },
+      addScmLocationAnalyzer(analyzer: ScmLocationAnalyzer) {
+        scmLocationAnalyzers.push(analyzer);
+      },
+    });
 
     const permissionExtensions = new CatalogPermissionExtensionPointImpl();
     env.registerExtensionPoint(
       catalogPermissionExtensionPoint,
       permissionExtensions,
     );
+
+    const modelExtensions = new CatalogModelExtensionPointImpl();
+    env.registerExtensionPoint(catalogModelExtensionPoint, modelExtensions);
 
     env.registerInit({
       deps: {
@@ -140,8 +206,11 @@ export const catalogPlugin = createBackendPlugin({
         permissions: coreServices.permissions,
         database: coreServices.database,
         httpRouter: coreServices.httpRouter,
-        lifecycle: coreServices.lifecycle,
+        lifecycle: coreServices.rootLifecycle,
         scheduler: coreServices.scheduler,
+        discovery: coreServices.discovery,
+        auth: coreServices.auth,
+        httpAuth: coreServices.httpAuth,
       },
       async init({
         logger,
@@ -152,27 +221,55 @@ export const catalogPlugin = createBackendPlugin({
         httpRouter,
         lifecycle,
         scheduler,
+        discovery,
+        auth,
+        httpAuth,
       }) {
-        const winstonLogger = loggerToWinstonLogger(logger);
         const builder = await CatalogBuilder.create({
           config,
           reader,
           permissions,
           database,
           scheduler,
-          logger: winstonLogger,
+          logger,
+          discovery,
+          auth,
+          httpAuth,
         });
+        if (processingExtensions.onProcessingErrorHandler) {
+          builder.subscribe({
+            onProcessingError: processingExtensions.onProcessingErrorHandler,
+          });
+        }
         builder.addProcessor(...processingExtensions.processors);
         builder.addEntityProvider(...processingExtensions.entityProviders);
+
+        if (modelExtensions.entityDataParser) {
+          builder.setEntityDataParser(modelExtensions.entityDataParser);
+        }
+
         Object.entries(processingExtensions.placeholderResolvers).forEach(
           ([key, resolver]) => builder.setPlaceholderResolver(key, resolver),
         );
-        builder.addLocationAnalyzers(...analysisExtensions.locationAnalyzers);
+        if (locationAnalyzerFactory) {
+          const { locationAnalyzer } = await locationAnalyzerFactory({
+            scmLocationAnalyzers,
+          }).catch(e => {
+            throw new ForwardedError('Failed to create LocationAnalyzer', e);
+          });
+          builder.setLocationAnalyzer(locationAnalyzer);
+        } else {
+          builder.addLocationAnalyzers(...scmLocationAnalyzers);
+        }
+        builder.addPermissions(...permissionExtensions.permissions);
         builder.addPermissionRules(...permissionExtensions.permissionRules);
+        builder.setFieldFormatValidators(modelExtensions.fieldValidators);
 
         const { processingEngine, router } = await builder.build();
 
-        await processingEngine.start();
+        lifecycle.addStartupHook(async () => {
+          await processingEngine.start();
+        });
         lifecycle.addShutdownHook(() => processingEngine.stop());
         httpRouter.use(router);
       },

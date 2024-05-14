@@ -5,24 +5,43 @@
 ```ts
 import { CatalogApi } from '@backstage/catalog-client';
 import { CatalogProcessor } from '@backstage/plugin-catalog-node';
+import { CatalogProcessorParser } from '@backstage/plugin-catalog-node';
 import { EntitiesSearchFilter } from '@backstage/plugin-catalog-node';
 import { Entity } from '@backstage/catalog-model';
 import { EntityProvider } from '@backstage/plugin-catalog-node';
 import { ExtensionPoint } from '@backstage/backend-plugin-api';
+import { LocationAnalyzer } from '@backstage/plugin-catalog-node';
+import { Permission } from '@backstage/plugin-permission-common';
 import { PermissionRule } from '@backstage/plugin-permission-node';
 import { PermissionRuleParams } from '@backstage/plugin-permission-common';
 import { PlaceholderResolver } from '@backstage/plugin-catalog-node';
 import { ScmLocationAnalyzer } from '@backstage/plugin-catalog-node';
 import { ServiceRef } from '@backstage/backend-plugin-api';
+import { Validators } from '@backstage/catalog-model';
 
 // @alpha (undocumented)
 export interface CatalogAnalysisExtensionPoint {
-  // (undocumented)
-  addLocationAnalyzer(analyzer: ScmLocationAnalyzer): void;
+  addScmLocationAnalyzer(analyzer: ScmLocationAnalyzer): void;
+  setLocationAnalyzer(
+    analyzerOrFactory:
+      | LocationAnalyzer
+      | ((options: { scmLocationAnalyzers: ScmLocationAnalyzer[] }) => Promise<{
+          locationAnalyzer: LocationAnalyzer;
+        }>),
+  ): void;
 }
 
 // @alpha (undocumented)
 export const catalogAnalysisExtensionPoint: ExtensionPoint<CatalogAnalysisExtensionPoint>;
+
+// @alpha (undocumented)
+export interface CatalogModelExtensionPoint {
+  setEntityDataParser(parser: CatalogProcessorParser): void;
+  setFieldValidators(validators: Partial<Validators>): void;
+}
+
+// @alpha (undocumented)
+export const catalogModelExtensionPoint: ExtensionPoint<CatalogModelExtensionPoint>;
 
 // @alpha (undocumented)
 export interface CatalogPermissionExtensionPoint {
@@ -32,6 +51,8 @@ export interface CatalogPermissionExtensionPoint {
       CatalogPermissionRuleInput | Array<CatalogPermissionRuleInput>
     >
   ): void;
+  // (undocumented)
+  addPermissions(...permissions: Array<Permission | Array<Permission>>): void;
 }
 
 // @alpha (undocumented)
@@ -53,6 +74,13 @@ export interface CatalogProcessingExtensionPoint {
   // (undocumented)
   addProcessor(
     ...processors: Array<CatalogProcessor | Array<CatalogProcessor>>
+  ): void;
+  // (undocumented)
+  setOnProcessingErrorHandler(
+    handler: (event: {
+      unprocessedEntity: Entity;
+      errors: Error[];
+    }) => Promise<void> | void,
   ): void;
 }
 

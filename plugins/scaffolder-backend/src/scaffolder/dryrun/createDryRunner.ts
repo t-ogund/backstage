@@ -33,13 +33,17 @@ import { TemplateActionRegistry } from '../actions';
 import { NunjucksWorkflowRunner } from '../tasks/NunjucksWorkflowRunner';
 import { DecoratedActionsRegistry } from './DecoratedActionsRegistry';
 import fs from 'fs-extra';
-import { resolveSafeChildPath } from '@backstage/backend-common';
 import { PermissionEvaluator } from '@backstage/plugin-permission-common';
+import {
+  BackstageCredentials,
+  resolveSafeChildPath,
+} from '@backstage/backend-plugin-api';
 
 interface DryRunInput {
   spec: TaskSpec;
   secrets?: TaskSecrets;
   directoryContents: SerializedFile[];
+  credentials: BackstageCredentials;
 }
 
 interface DryRunResult {
@@ -116,6 +120,7 @@ export function createDryRunner(options: TemplateTesterCreateOptions) {
           },
         },
         secrets: input.secrets,
+        getInitiatorCredentials: () => Promise.resolve(input.credentials),
         // No need to update this at the end of the run, so just hard-code it
         done: false,
         isDryRun: true,

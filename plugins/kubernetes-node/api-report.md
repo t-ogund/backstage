@@ -4,6 +4,8 @@
 
 ```ts
 import { AuthenticationStrategy as AuthenticationStrategy_2 } from '@backstage/plugin-kubernetes-node';
+import { BackstageCredentials } from '@backstage/backend-plugin-api';
+import { ClusterDetails as ClusterDetails_2 } from '@backstage/plugin-kubernetes-node';
 import { CustomResourceMatcher } from '@backstage/plugin-kubernetes-common';
 import { Entity } from '@backstage/catalog-model';
 import { ExtensionPoint } from '@backstage/backend-plugin-api';
@@ -15,6 +17,7 @@ import { KubernetesFetchError } from '@backstage/plugin-kubernetes-common';
 import { KubernetesObjectsProvider as KubernetesObjectsProvider_2 } from '@backstage/plugin-kubernetes-node';
 import { KubernetesRequestAuth } from '@backstage/plugin-kubernetes-common';
 import { KubernetesServiceLocator as KubernetesServiceLocator_2 } from '@backstage/plugin-kubernetes-node';
+import { Logger } from 'winston';
 import { ObjectsByEntityResponse } from '@backstage/plugin-kubernetes-common';
 
 // @public (undocumented)
@@ -24,6 +27,8 @@ export interface AuthenticationStrategy {
     clusterDetails: ClusterDetails,
     authConfig: KubernetesRequestAuth,
   ): Promise<KubernetesCredential>;
+  // (undocumented)
+  presentAuthMetadata(authMetadata: AuthMetadata): AuthMetadata;
   // (undocumented)
   validateCluster(authMetadata: AuthMetadata): Error[];
 }
@@ -47,6 +52,7 @@ export interface ClusterDetails {
   skipMetricsLookup?: boolean;
   // (undocumented)
   skipTLSVerify?: boolean;
+  title?: string;
   // (undocumented)
   url: string;
 }
@@ -82,7 +88,9 @@ export const kubernetesAuthStrategyExtensionPoint: ExtensionPoint<KubernetesAuth
 
 // @public
 export interface KubernetesClustersSupplier {
-  getClusters(): Promise<ClusterDetails[]>;
+  getClusters(options: {
+    credentials: BackstageCredentials;
+  }): Promise<ClusterDetails[]>;
 }
 
 // @public
@@ -99,6 +107,11 @@ export type KubernetesCredential =
   | {
       type: 'bearer token';
       token: string;
+    }
+  | {
+      type: 'x509 client certificate';
+      cert: string;
+      key: string;
     }
   | {
       type: 'anonymous';
@@ -141,10 +154,16 @@ export interface KubernetesObjectsProvider {
   // (undocumented)
   getCustomResourcesByEntity(
     customResourcesByEntity: CustomResourcesByEntity,
+    options: {
+      credentials: BackstageCredentials;
+    },
   ): Promise<ObjectsByEntityResponse>;
   // (undocumented)
   getKubernetesObjectsByEntity(
     kubernetesObjectsByEntity: KubernetesObjectsByEntity,
+    options: {
+      credentials: BackstageCredentials;
+    },
   ): Promise<ObjectsByEntityResponse>;
 }
 
@@ -225,7 +244,39 @@ export interface ObjectToFetch {
 }
 
 // @public (undocumented)
+export type PinnipedClientCerts = {
+  key: string;
+  cert: string;
+  expirationTimestamp: string;
+};
+
+// @public (undocumented)
+export class PinnipedHelper {
+  constructor(logger: Logger);
+  // (undocumented)
+  tokenCredentialRequest(
+    clusterDetails: ClusterDetails_2,
+    pinnipedParams: PinnipedParameters,
+  ): Promise<PinnipedClientCerts>;
+}
+
+// @public (undocumented)
+export type PinnipedParameters = {
+  clusterScopedIdToken: string;
+  authenticator: {
+    apiGroup: string;
+    kind: string;
+    name: string;
+  };
+  tokenCredentialRequest?: {
+    apiGroup?: string;
+  };
+};
+
+// @public (undocumented)
 export interface ServiceLocatorRequestContext {
+  // (undocumented)
+  credentials: BackstageCredentials;
   // (undocumented)
   customResources: CustomResourceMatcher[];
   // (undocumented)

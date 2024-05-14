@@ -1,5 +1,5 @@
 site_name: 'Backstage'
-site_description: 'Main documentation for Backstage features and platform APIs'
+site_description: 'Main documentation for Backstage features and framework APIs'
 repo_url: https://github.com/backstage/backstage
 edit_uri: edit/master/docs
 
@@ -18,17 +18,21 @@ nav:
       - Release & Versioning Policy: 'overview/versioning-policy.md'
       - Backstage Threat Model: 'overview/threat-model.md'
       - Support and community: 'overview/support.md'
-      - Glossary: 'overview/glossary.md'
       - Logo assets: 'overview/logos.md'
   - Getting Started:
-      - Getting Started: 'getting-started/index.md'
-      - Create an App: 'getting-started/create-an-app.md'
-      - App configuration:
+      - Installing a standalone server: 'getting-started/index.md'
+      - Configuring Backstage:
+          - Database: 'getting-started/config/database.md'
+          - Authentication: 'getting-started/config/authentication.md'
           - Configuring App with plugins: 'getting-started/configure-app-with-plugins.md'
           - Customize the look-and-feel of your App: 'getting-started/app-custom-theme.md'
+          - Customizing your Homepage: 'getting-started/homepage.md'
+      - Using Backstage:
+          - Logging in: 'getting-started/logging-in.md'
+          - Register a component: 'getting-started/register-a-component.md'
+          - Create a component: 'getting-started/create-a-component.md'
       - Keeping Backstage Updated: 'getting-started/keeping-backstage-updated.md'
       - Key Concepts: 'getting-started/concepts.md'
-      - Project Structure: 'getting-started/project-structure.md'
   - Local Development:
       - CLI:
           - Overview: 'local-dev/cli-overview.md'
@@ -91,6 +95,8 @@ nav:
       - AWS S3:
           - Locations: 'integrations/aws-s3/locations.md'
           - Discovery: 'integrations/aws-s3/discovery.md'
+      - AWS CodeCommit:
+          - Locations: 'integrations/aws-codecommit/locations.md'
       - Azure:
           - Locations: 'integrations/azure/locations.md'
           - Discovery: 'integrations/azure/discovery.md'
@@ -128,6 +134,10 @@ nav:
       - Composability System: 'plugins/composability.md'
       - Plugin Analytics: 'plugins/analytics.md'
       - Feature Flags: 'plugins/feature-flags.md'
+      - OpenAPI:
+          - Schema-first plugins with OpenAPI (Experimental): 'openapi/01-getting-started.md'
+          - Generate a client from your OpenAPI spec: 'openapi/generate-client.md'
+          - Validate your OpenAPI spec against test data: 'openapi/test-case-validation.md'
       - Backends and APIs:
           - Proxying: 'plugins/proxying.md'
           - Backend plugin: 'plugins/backend-plugin.md'
@@ -158,6 +168,7 @@ nav:
           - GitLab: 'auth/gitlab/provider.md'
           - Google: 'auth/google/provider.md'
           - Google IAP: 'auth/google/gcp-iap-auth.md'
+          - Guest: 'auth/guest/provider.md'
           - OAuth2Proxy: 'auth/oauth2-proxy/provider.md'
           - Okta: 'auth/okta/provider.md'
           - OneLogin: 'auth/onelogin/provider.md'
@@ -167,7 +178,6 @@ nav:
       - Contributing New Providers: 'auth/add-auth-provider.md'
       - Service to Service Auth: 'auth/service-to-service-auth.md'
       - Troubleshooting Auth: 'auth/troubleshooting.md'
-      - Glossary: 'auth/glossary.md'
   - Deployment:
       - Deploying Backstage: 'deployment/index.md'
       - Scaling: 'deployment/scaling.md'
@@ -185,7 +195,6 @@ nav:
           - Utility APIs: 'api/utility-apis.md'
       - Deprecations: 'api/deprecations.md'
   - Tutorials:
-      - Future developer journey: 'tutorials/journey.md'
       - React Router 6.0 Migration: 'tutorials/react-router-stable-migration.md'
       - Package Role Migration: 'tutorials/package-role-migration.md'
       - Migrating away from @backstage/core: 'tutorials/migrating-away-from-core.md'
@@ -208,6 +217,14 @@ nav:
       - ADR009 - Entity References: 'architecture-decisions/adr009-entity-references.md'
       - ADR010 - Luxon Date Library: 'architecture-decisions/adr010-luxon-date-library.md'
       - ADR011 - Plugin Package Structure: 'architecture-decisions/adr011-plugin-package-structure.md'
-      - ADR012 - Plugin Package Structure: 'architecture-decisions/adr012-use-luxon-locale-and-date-presets.md'
-      - ADR013 - Plugin Package Structure: 'architecture-decisions/adr013-use-node-fetch.md'
-  - FAQ: FAQ.md
+      - ADR012 - Use Luxon Locale: 'architecture-decisions/adr012-use-luxon-locale-and-date-presets.md'
+      - ADR013 - Use node-fetch: 'architecture-decisions/adr013-use-node-fetch.md'
+  - FAQ:
+      - Overview: 'faq/index.md'
+      - Product FAQ: 'faq/product.md'
+      - Technical FAQ: 'faq/technical.md'
+  - Contribute:
+      - Contributions: 'contribute/index.md'
+      - Project Structure: 'contribute/project-structure.md'
+  - References:
+      - Glossary: 'references/glossary.md'

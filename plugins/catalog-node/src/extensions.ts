@@ -15,15 +15,20 @@
  */
 
 import { createExtensionPoint } from '@backstage/backend-plugin-api';
-import { Entity } from '@backstage/catalog-model';
+import { Entity, Validators } from '@backstage/catalog-model';
 import {
   CatalogProcessor,
+  CatalogProcessorParser,
   EntitiesSearchFilter,
   EntityProvider,
   PlaceholderResolver,
+  LocationAnalyzer,
   ScmLocationAnalyzer,
 } from '@backstage/plugin-catalog-node';
-import { PermissionRuleParams } from '@backstage/plugin-permission-common';
+import {
+  Permission,
+  PermissionRuleParams,
+} from '@backstage/plugin-permission-common';
 import { PermissionRule } from '@backstage/plugin-permission-node';
 
 /**
@@ -37,6 +42,30 @@ export interface CatalogProcessingExtensionPoint {
     ...providers: Array<EntityProvider | Array<EntityProvider>>
   ): void;
   addPlaceholderResolver(key: string, resolver: PlaceholderResolver): void;
+  setOnProcessingErrorHandler(
+    handler: (event: {
+      unprocessedEntity: Entity;
+      errors: Error[];
+    }) => Promise<void> | void,
+  ): void;
+}
+
+/** @alpha */
+export interface CatalogModelExtensionPoint {
+  /**
+   * Sets the validator function to use for one or more special fields of an
+   * entity. This is useful if the default rules for formatting of fields are
+   * not sufficient.
+   *
+   * @param validators - The (subset of) validators to set
+   */
+  setFieldValidators(validators: Partial<Validators>): void;
+
+  /**
+   * Sets the entity data parser which is used to read raw data from locations
+   * @param parser - Parser which will used to extract entities from raw data
+   */
+  setEntityDataParser(parser: CatalogProcessorParser): void;
 }
 
 /**
@@ -51,7 +80,27 @@ export const catalogProcessingExtensionPoint =
  * @alpha
  */
 export interface CatalogAnalysisExtensionPoint {
-  addLocationAnalyzer(analyzer: ScmLocationAnalyzer): void;
+  /**
+   * Replaces the entire location analyzer with a new one.
+   *
+   * @remarks
+   *
+   * By providing a factory function you can access all the SCM analyzers that
+   * have been added through `addScmLocationAnalyzer`. If you provide a
+   * `LocationAnalyzer` directly, the SCM analyzers will be ignored.
+   */
+  setLocationAnalyzer(
+    analyzerOrFactory:
+      | LocationAnalyzer
+      | ((options: {
+          scmLocationAnalyzers: ScmLocationAnalyzer[];
+        }) => Promise<{ locationAnalyzer: LocationAnalyzer }>),
+  ): void;
+
+  /**
+   * Adds an analyzer for a specific SCM type to the default location analyzer.
+   */
+  addScmLocationAnalyzer(analyzer: ScmLocationAnalyzer): void;
 }
 
 /**
@@ -60,6 +109,12 @@ export interface CatalogAnalysisExtensionPoint {
 export const catalogAnalysisExtensionPoint =
   createExtensionPoint<CatalogAnalysisExtensionPoint>({
     id: 'catalog.analysis',
+  });
+
+/** @alpha */
+export const catalogModelExtensionPoint =
+  createExtensionPoint<CatalogModelExtensionPoint>({
+    id: 'catalog.model',
   });
 
 /**
@@ -73,6 +128,7 @@ export type CatalogPermissionRuleInput<
  * @alpha
  */
 export interface CatalogPermissionExtensionPoint {
+  addPermissions(...permissions: Array<Permission | Array<Permission>>): void;
   addPermissionRules(
     ...rules: Array<
       CatalogPermissionRuleInput | Array<CatalogPermissionRuleInput>

@@ -34,7 +34,7 @@ import ArrowDropUp from '@material-ui/icons/ArrowDropUp';
 import ArrowRightIcon from '@material-ui/icons/ArrowRight';
 import SearchIcon from '@material-ui/icons/Search';
 import classnames from 'classnames';
-import { Location } from 'history';
+import type { Location } from 'history';
 import React, {
   ComponentProps,
   ComponentType,
@@ -701,8 +701,7 @@ export const SidebarScrollWrapper = styled('div')(({ theme }) => {
   return {
     flex: '0 1 auto',
     overflowX: 'hidden',
-    // 5px space to the right of the scrollbar
-    width: 'calc(100% - 5px)',
+    width: '100%',
     // Display at least one item in the container
     // Question: Can this be a config/theme variable - if so, which? :/
     minHeight: '48px',

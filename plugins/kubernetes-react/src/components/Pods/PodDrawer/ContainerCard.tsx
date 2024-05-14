@@ -15,18 +15,17 @@
  */
 import { StructuredMetadataTable } from '@backstage/core-components';
 import { ClientContainerStatus } from '@backstage/plugin-kubernetes-common';
-import {
-  Card,
-  CardActions,
-  CardContent,
-  CardHeader,
-  Grid,
-  Typography,
-} from '@material-ui/core';
+import Card from '@material-ui/core/Card';
+import CardActions from '@material-ui/core/CardActions';
+import CardContent from '@material-ui/core/CardContent';
+import CardHeader from '@material-ui/core/CardHeader';
+import Grid from '@material-ui/core/Grid';
+import Typography from '@material-ui/core/Typography';
 import { IContainer, IContainerStatus } from 'kubernetes-models/v1';
 import { DateTime } from 'luxon';
 import React from 'react';
 
+import { useIsPodExecTerminalEnabled } from '../../../hooks';
 import { bytesToMiB, formatMillicores } from '../../../utils/resources';
 import { PodExecTerminalDialog } from '../../PodExecTerminal/PodExecTerminalDialog';
 import { ResourceUtilization } from '../../ResourceUtilization';
@@ -108,6 +107,8 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
   containerStatus,
   containerMetrics,
 }: ContainerCardProps) => {
+  const isPodExecTerminalEnabled = useIsPodExecTerminalEnabled();
+
   // This should never be undefined
   if (containerSpec === undefined) {
     return <Typography>error reading pod from cluster</Typography>;
@@ -228,12 +229,14 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
             ...podScope,
           }}
         />
-        <PodExecTerminalDialog
-          clusterName={podScope.clusterName}
-          containerName={containerStatus.name}
-          podName={podScope.podName}
-          podNamespace={podScope.podNamespace}
-        />
+        {isPodExecTerminalEnabled && (
+          <PodExecTerminalDialog
+            cluster={podScope.cluster}
+            containerName={containerStatus.name}
+            podName={podScope.podName}
+            podNamespace={podScope.podNamespace}
+          />
+        )}
       </CardActions>
     </Card>
   );

@@ -29,12 +29,12 @@ import {
 } from '@backstage/plugin-catalog-react';
 import limiterFactory from 'p-limit';
 import { useApi } from '@backstage/core-plugin-api';
-import useAsync from 'react-use/lib/useAsync';
+import useAsync from 'react-use/esm/useAsync';
 import qs from 'qs';
-import { EntityRelationAggregation as EntityRelationsAggregation } from './types';
+import { EntityRelationAggregation } from '../types';
 import { uniq } from 'lodash';
 
-const limiter = limiterFactory(10);
+const limiter = limiterFactory(5);
 
 type EntityTypeProps = {
   kind: string;
@@ -92,10 +92,12 @@ const getChildOwnershipEntityRefs = async (
   const entityRef = stringifyEntityRef(entity);
   if (hasChildGroups) {
     const entityRefs = childGroups.map(r => stringifyEntityRef(r));
-    const childGroupResponse = await catalogApi.getEntitiesByRefs({
-      fields: ['kind', 'metadata.namespace', 'metadata.name', 'relations'],
-      entityRefs,
-    });
+    const childGroupResponse = await limiter(() =>
+      catalogApi.getEntitiesByRefs({
+        fields: ['kind', 'metadata.namespace', 'metadata.name', 'relations'],
+        entityRefs,
+      }),
+    );
     const childGroupEntities = childGroupResponse.items.filter(isEntity);
 
     const unknownChildren = childGroupEntities.filter(
@@ -107,12 +109,10 @@ const getChildOwnershipEntityRefs = async (
     const childrenRefs = (
       await Promise.all(
         unknownChildren.map(childGroupEntity =>
-          limiter(() =>
-            getChildOwnershipEntityRefs(childGroupEntity, catalogApi, [
-              ...alreadyRetrievedParentRefs,
-              entityRef,
-            ]),
-          ),
+          getChildOwnershipEntityRefs(childGroupEntity, catalogApi, [
+            ...alreadyRetrievedParentRefs,
+            entityRef,
+          ]),
         ),
       )
     ).flatMap(aggregated => aggregated);
@@ -125,7 +125,7 @@ const getChildOwnershipEntityRefs = async (
 
 const getOwners = async (
   entity: Entity,
-  relations: EntityRelationsAggregation,
+  relations: EntityRelationAggregation,
   catalogApi: CatalogApi,
 ): Promise<string[]> => {
   const isGroup = entity.kind === 'Group';
@@ -166,7 +166,7 @@ const getOwnedEntitiesByOwners = (
 
 export function useGetEntities(
   entity: Entity,
-  relations: EntityRelationsAggregation,
+  relations: EntityRelationAggregation,
   entityFilterKind?: string[],
   entityLimit = 6,
 ): {

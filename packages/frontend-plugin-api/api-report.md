@@ -67,6 +67,7 @@ import { OpenIdConnectApi } from '@backstage/core-plugin-api';
 import { PendingOAuthRequest } from '@backstage/core-plugin-api';
 import { ProfileInfo } from '@backstage/core-plugin-api';
 import { ProfileInfoApi } from '@backstage/core-plugin-api';
+import { PropsWithChildren } from 'react';
 import { default as React_2 } from 'react';
 import { ReactNode } from 'react';
 import { SessionApi } from '@backstage/core-plugin-api';
@@ -85,6 +86,7 @@ import { TypesToApiRefs } from '@backstage/core-plugin-api';
 import { useApi } from '@backstage/core-plugin-api';
 import { useApiHolder } from '@backstage/core-plugin-api';
 import { useTranslationRef } from '@backstage/core-plugin-api/alpha';
+import { vmwareCloudAuthApiRef } from '@backstage/core-plugin-api';
 import { withApis } from '@backstage/core-plugin-api';
 import { z } from 'zod';
 import { ZodSchema } from 'zod';
@@ -180,7 +182,7 @@ export type AnyRouteRefParams =
 
 // @public (undocumented)
 export type AnyRoutes = {
-  [name in string]: RouteRef;
+  [name in string]: RouteRef | SubRouteRef;
 };
 
 export { ApiFactory };
@@ -390,6 +392,61 @@ export { createApiFactory };
 
 export { createApiRef };
 
+// @public
+export function createAppRootElementExtension<
+  TConfig extends {},
+  TInputs extends AnyExtensionInputMap,
+>(options: {
+  namespace?: string;
+  name?: string;
+  attachTo?: {
+    id: string;
+    input: string;
+  };
+  configSchema?: PortableSchema<TConfig>;
+  disabled?: boolean;
+  inputs?: TInputs;
+  element:
+    | JSX_2.Element
+    | ((options: {
+        inputs: Expand<ResolvedExtensionInputs<TInputs>>;
+        config: TConfig;
+      }) => JSX_2.Element);
+}): ExtensionDefinition<TConfig>;
+
+// @public
+export function createAppRootWrapperExtension<
+  TConfig extends {},
+  TInputs extends AnyExtensionInputMap,
+>(options: {
+  namespace?: string;
+  name?: string;
+  attachTo?: {
+    id: string;
+    input: string;
+  };
+  configSchema?: PortableSchema<TConfig>;
+  disabled?: boolean;
+  inputs?: TInputs;
+  Component: ComponentType<
+    PropsWithChildren<{
+      inputs: Expand<ResolvedExtensionInputs<TInputs>>;
+      config: TConfig;
+    }>
+  >;
+}): ExtensionDefinition<TConfig>;
+
+// @public (undocumented)
+export namespace createAppRootWrapperExtension {
+  const // (undocumented)
+    componentDataRef: ConfigurableExtensionDataRef<
+      React_2.ComponentType<{
+        children?: React_2.ReactNode;
+      }>,
+      {}
+    >;
+}
+
 // @public (undocumented)
 export function createComponentExtension<
   TProps extends {},
@@ -427,6 +484,11 @@ export namespace createComponentExtension {
       {}
     >;
 }
+
+// @public (undocumented)
+export function createComponentRef<T extends {} = {}>(options: {
+  id: string;
+}): ComponentRef<T>;
 
 // @public (undocumented)
 export function createExtension<
@@ -512,6 +574,7 @@ export function createExternalRouteRef<
     ? (keyof TParams)[]
     : TParamKeys[];
   optional?: TOptional;
+  defaultTarget?: string;
 }): ExternalRouteRef<
   keyof TParams extends never
     ? undefined
@@ -625,6 +688,39 @@ export function createRouteRef<
         [param in TParamKeys]: string;
       }
 >;
+
+// @public
+export function createRouterExtension<
+  TConfig extends {},
+  TInputs extends AnyExtensionInputMap,
+>(options: {
+  namespace?: string;
+  name?: string;
+  attachTo?: {
+    id: string;
+    input: string;
+  };
+  configSchema?: PortableSchema<TConfig>;
+  disabled?: boolean;
+  inputs?: TInputs;
+  Component: ComponentType<
+    PropsWithChildren<{
+      inputs: Expand<ResolvedExtensionInputs<TInputs>>;
+      config: TConfig;
+    }>
+  >;
+}): ExtensionDefinition<TConfig>;
+
+// @public (undocumented)
+export namespace createRouterExtension {
+  const // (undocumented)
+    componentDataRef: ConfigurableExtensionDataRef<
+      React_2.ComponentType<{
+        children?: React_2.ReactNode;
+      }>,
+      {}
+    >;
+}
 
 // @public (undocumented)
 export function createSchemaFromZod<TOutput, TInput>(
@@ -882,6 +978,17 @@ export type IconComponent = ComponentType<
     }
 >;
 
+// @public
+export interface IconsApi {
+  // (undocumented)
+  getIcon(key: string): IconComponent | undefined;
+  // (undocumented)
+  listIconKeys(): string[];
+}
+
+// @public
+export const iconsApiRef: ApiRef<IconsApi>;
+
 export { IdentityApi };
 
 export { identityApiRef };
@@ -974,6 +1081,26 @@ export interface RouteRef<
   readonly T: TParams;
 }
 
+// @public (undocumented)
+export interface RouteResolutionApi {
+  // (undocumented)
+  resolve<TParams extends AnyRouteRefParams>(
+    anyRouteRef:
+      | RouteRef<TParams>
+      | SubRouteRef<TParams>
+      | ExternalRouteRef<TParams, any>,
+    options?: RouteResolutionApiResolveOptions,
+  ): RouteFunc<TParams> | undefined;
+}
+
+// @public
+export const routeResolutionApiRef: ApiRef<RouteResolutionApi>;
+
+// @public (undocumented)
+export type RouteResolutionApiResolveOptions = {
+  sourcePath?: string;
+};
+
 export { SessionApi };
 
 export { SessionState };
@@ -1028,7 +1155,7 @@ export function useRouteRef<
   TParams extends AnyRouteRefParams,
 >(
   routeRef: ExternalRouteRef<TParams, TOptional>,
-): TParams extends true ? RouteFunc<TParams> | undefined : RouteFunc<TParams>;
+): TOptional extends true ? RouteFunc<TParams> | undefined : RouteFunc<TParams>;
 
 // @public
 export function useRouteRef<TParams extends AnyRouteRefParams>(
@@ -1041,6 +1168,8 @@ export function useRouteRefParams<Params extends AnyRouteRefParams>(
 ): Params;
 
 export { useTranslationRef };
+
+export { vmwareCloudAuthApiRef };
 
 export { withApis };
 ```

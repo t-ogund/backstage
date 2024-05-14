@@ -32,7 +32,7 @@ import { loadCliConfig } from '../config';
 import { Lockfile } from '../versioning';
 import { createConfig, resolveBaseUrl } from './config';
 import { createDetectedModulesEntryPoint } from './packageDetection';
-import { resolveBundlingPaths } from './paths';
+import { resolveBundlingPaths, resolveOptionalBundlingPaths } from './paths';
 import { ServeOptions } from './types';
 import { hasReactDomClient } from './hasReactDomClient';
 
@@ -110,9 +110,10 @@ DEPRECATION WARNING: React Router Beta is deprecated and support for it will be 
   });
   latestFrontendAppConfigs = cliConfig.frontendAppConfigs;
 
-  const appBaseUrl = cliConfig.frontendConfig.getString('app.baseUrl');
-  const backendBaseUrl = cliConfig.frontendConfig.getString('backend.baseUrl');
-  if (appBaseUrl === backendBaseUrl) {
+  const appBaseUrl = cliConfig.frontendConfig.getOptionalString('app.baseUrl');
+  const backendBaseUrl =
+    cliConfig.frontendConfig.getOptionalString('backend.baseUrl');
+  if (appBaseUrl && appBaseUrl === backendBaseUrl) {
     console.log(
       chalk.yellow(
         `⚠️   Conflict between app baseUrl and backend baseUrl:
@@ -147,7 +148,7 @@ DEPRECATION WARNING: React Router Beta is deprecated and support for it will be 
     },
   });
 
-  const config = await createConfig(paths, {
+  const commonConfigOptions = {
     ...options,
     checksEnabled: options.checksEnabled,
     isDev: true,
@@ -156,11 +157,15 @@ DEPRECATION WARNING: React Router Beta is deprecated and support for it will be 
     getFrontendAppConfigs: () => {
       return latestFrontendAppConfigs;
     },
+  };
+
+  const config = await createConfig(paths, {
+    ...commonConfigOptions,
     additionalEntryPoints: detectedModulesEntryPoint,
   });
 
   if (process.env.EXPERIMENTAL_VITE) {
-    const { default: vite } = await import('vite');
+    const vite = await import('vite');
     const { default: viteReact } = await import('@vitejs/plugin-react');
     const { nodePolyfills: viteNodePolyfills } = await import(
       'vite-plugin-node-polyfills'
@@ -199,7 +204,20 @@ DEPRECATION WARNING: React Router Beta is deprecated and support for it will be 
       root: paths.targetPath,
     });
   } else {
-    const compiler = webpack(config);
+    const publicPaths = await resolveOptionalBundlingPaths({
+      entry: 'src/index-public-experimental',
+      dist: 'dist/public',
+    });
+    if (publicPaths) {
+      console.log(
+        chalk.yellow(
+          `⚠️  WARNING: The app /public entry point is an experimental feature that may receive immediate breaking changes.`,
+        ),
+      );
+    }
+    const compiler = publicPaths
+      ? webpack([config, await createConfig(publicPaths, commonConfigOptions)])
+      : webpack(config);
 
     webpackServer = new WebpackDevServer(
       {
@@ -222,13 +240,16 @@ DEPRECATION WARNING: React Router Beta is deprecated and support for it will be 
           // The index needs to be rewritten relative to the new public path, including subroutes.
           index: `${config.output?.publicPath}index.html`,
         },
-        https:
+        server:
           url.protocol === 'https:'
             ? {
-                cert: fullConfig.getString('app.https.certificate.cert'),
-                key: fullConfig.getString('app.https.certificate.key'),
+                type: 'https',
+                options: {
+                  cert: fullConfig.getString('app.https.certificate.cert'),
+                  key: fullConfig.getString('app.https.certificate.key'),
+                },
               }
-            : false,
+            : {},
         host,
         port,
         proxy: targetPkg.proxy,
@@ -262,7 +283,7 @@ DEPRECATION WARNING: React Router Beta is deprecated and support for it will be 
   const waitForExit = async () => {
     for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       process.on(signal, () => {
-        webpackServer?.close();
+        webpackServer?.stop();
         viteServer?.close();
         // exit instead of resolve. The process is shutting down and resolving a promise here logs an error
         process.exit();

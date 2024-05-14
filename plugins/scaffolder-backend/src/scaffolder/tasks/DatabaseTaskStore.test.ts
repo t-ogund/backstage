@@ -19,6 +19,8 @@ import { ConfigReader } from '@backstage/config';
 import { DatabaseTaskStore } from './DatabaseTaskStore';
 import { TaskSpec } from '@backstage/plugin-scaffolder-common';
 import { ConflictError } from '@backstage/errors';
+import { createMockDirectory } from '@backstage/backend-test-utils';
+import fs from 'fs-extra';
 
 const createStore = async () => {
   const manager = DatabaseManager.fromConfig(
@@ -36,6 +38,18 @@ const createStore = async () => {
   });
   return { store, manager };
 };
+
+const workspaceDir = createMockDirectory({
+  content: {
+    'app-config.yaml': `
+            app:
+              title: Example App
+              sessionKey:
+                $file: secrets/session-key.txt
+              escaped: \$\${Escaped}
+          `,
+  },
+});
 
 describe('DatabaseTaskStore', () => {
   it('should create the database store and run migration', async () => {
@@ -161,6 +175,44 @@ describe('DatabaseTaskStore', () => {
     expect(claimedTask.status).toBe('processing');
   });
 
+  it('should restore the state of the task after the task recovery', async () => {
+    const { store } = await createStore();
+    const { taskId } = await store.createTask({
+      spec: {} as TaskSpec,
+      createdBy: 'me',
+    });
+
+    const task = await store.getTask(taskId);
+    expect(task.status).toBe('open');
+    await store.claimTask();
+
+    const state = {
+      state: {
+        checkpoints: {
+          'v1.task.checkpoint.deploy.to.stg': {
+            status: 'success',
+            value: true,
+          },
+          'v1.task.checkpoint.deploy.to.pro': {
+            status: 'success',
+            value: true,
+          },
+        },
+      },
+    };
+
+    await store.saveTaskState({
+      taskId,
+      state,
+    });
+
+    await store.recoverTasks({ timeout: { milliseconds: 0 } });
+    await store.claimTask();
+
+    const claimedTask = await store.getTask(taskId);
+    expect(claimedTask.state).toEqual({ state: state.state });
+  });
+
   it('should shutdown the running task', async () => {
     const { store } = await createStore();
     const { taskId } = await store.createTask({
@@ -187,5 +239,56 @@ describe('DatabaseTaskStore', () => {
     await expect(async () => {
       await store.shutdownTask({ taskId });
     }).rejects.toThrow(ConflictError);
+  });
+
+  it('should store checkpoints and retrieve task state', async () => {
+    const { store } = await createStore();
+    const { taskId } = await store.createTask({
+      spec: {} as TaskSpec,
+      createdBy: 'me',
+    });
+
+    await store.saveTaskState({
+      taskId,
+      state: {
+        checkpoints: {
+          'repo.create': {
+            status: 'success',
+            value: { repoUrl: 'https://github.com/backstage/backstage.git' },
+          },
+        },
+      },
+    });
+
+    const state = await store.getTaskState({ taskId });
+
+    expect(state).toStrictEqual({
+      state: {
+        checkpoints: {
+          'repo.create': {
+            status: 'success',
+            value: { repoUrl: 'https://github.com/backstage/backstage.git' },
+          },
+        },
+      },
+    });
+  });
+
+  it('serialize and restore the workspace', async () => {
+    const { store } = await createStore();
+    const { taskId } = await store.createTask({
+      spec: {} as TaskSpec,
+      createdBy: 'me',
+    });
+
+    await store.serializeWorkspace({ path: workspaceDir.path, taskId });
+    expect(fs.existsSync(`${workspaceDir.path}/app-config.yaml`)).toBeTruthy();
+
+    fs.removeSync(workspaceDir.path);
+    expect(fs.existsSync(`${workspaceDir.path}/app-config.yaml`)).toBeFalsy();
+
+    fs.mkdirSync(workspaceDir.path);
+    await store.rehydrateWorkspace({ targetPath: workspaceDir.path, taskId });
+    expect(fs.existsSync(`${workspaceDir.path}/app-config.yaml`)).toBeTruthy();
   });
 });

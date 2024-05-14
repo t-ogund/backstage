@@ -14,28 +14,25 @@
  * limitations under the License.
  */
 
-import React, { JSX } from 'react';
-import { ConfigReader, Config } from '@backstage/config';
+import React, { JSX, ReactNode } from 'react';
+import { ConfigReader } from '@backstage/config';
 import {
   AppTree,
   appTreeApiRef,
-  ComponentRef,
   componentsApiRef,
   coreExtensionData,
   createApiExtension,
-  createComponentExtension,
-  createNavItemExtension,
   createThemeExtension,
   createTranslationExtension,
-  ExtensionDataRef,
   FrontendFeature,
-  RouteRef,
-  useRouteRef,
+  iconsApiRef,
+  RouteResolutionApi,
+  routeResolutionApiRef,
 } from '@backstage/frontend-plugin-api';
-import { Core } from '../extensions/Core';
-import { CoreRoutes } from '../extensions/CoreRoutes';
-import { CoreLayout } from '../extensions/CoreLayout';
-import { CoreNav } from '../extensions/CoreNav';
+import { App } from '../extensions/App';
+import { AppRoutes } from '../extensions/AppRoutes';
+import { AppLayout } from '../extensions/AppLayout';
+import { AppNav } from '../extensions/AppNav';
 import {
   AnyApiFactory,
   ApiHolder,
@@ -44,9 +41,11 @@ import {
   configApiRef,
   IconComponent,
   featureFlagsApiRef,
-  attachComponentData,
   identityApiRef,
   AppTheme,
+  errorApiRef,
+  discoveryApiRef,
+  fetchApiRef,
 } from '@backstage/core-plugin-api';
 import { getAvailableFeatures } from './discovery';
 import {
@@ -57,6 +56,8 @@ import {
 } from '@backstage/core-app-api';
 
 // TODO: Get rid of all of these
+// eslint-disable-next-line @backstage/no-relative-monorepo-imports
+import { isProtectedApp } from '../../../core-app-api/src/app/isProtectedApp';
 // eslint-disable-next-line @backstage/no-relative-monorepo-imports
 import { AppThemeProvider } from '../../../core-app-api/src/app/AppThemeProvider';
 // eslint-disable-next-line @backstage/no-relative-monorepo-imports
@@ -75,16 +76,18 @@ import { I18nextTranslationApi } from '../../../core-app-api/src/apis/implementa
 import { resolveExtensionDefinition } from '../../../frontend-plugin-api/src/wiring/resolveExtensionDefinition';
 // eslint-disable-next-line @backstage/no-relative-monorepo-imports
 import { apis as defaultApis } from '../../../app-defaults/src/defaults';
-import { Route } from 'react-router-dom';
-import { SidebarItem } from '@backstage/core-components';
 import { DarkTheme, LightTheme } from '../extensions/themes';
+import {
+  oauthRequestDialogAppRootElement,
+  alertDisplayAppRootElement,
+} from '../extensions/elements';
 import { extractRouteInfoFromAppNode } from '../routing/extractRouteInfoFromAppNode';
 import {
   appLanguageApiRef,
   translationApiRef,
 } from '@backstage/core-plugin-api/alpha';
 import { CreateAppRouteBinder } from '../routing';
-import { RoutingProvider } from '../routing/RoutingProvider';
+import { RouteResolver } from '../routing/RouteResolver';
 import { resolveRouteBindings } from '../routing/resolveRouteBindings';
 import { collectRouteIds } from '../routing/collectRouteIds';
 import { createAppTree } from '../tree';
@@ -93,131 +96,36 @@ import {
   DefaultErrorBoundaryComponent,
   DefaultNotFoundErrorPageComponent,
 } from '../extensions/components';
-import { AppNode } from '@backstage/frontend-plugin-api';
 import { InternalAppContext } from './InternalAppContext';
-import { CoreRouter } from '../extensions/CoreRouter';
+import { AppRoot } from '../extensions/AppRoot';
 // eslint-disable-next-line @backstage/no-relative-monorepo-imports
 import { toInternalBackstagePlugin } from '../../../frontend-plugin-api/src/wiring/createPlugin';
 // eslint-disable-next-line @backstage/no-relative-monorepo-imports
 import { toInternalExtensionOverrides } from '../../../frontend-plugin-api/src/wiring/createExtensionOverrides';
 import { DefaultComponentsApi } from '../apis/implementations/ComponentsApi';
+import { DefaultIconsApi } from '../apis/implementations/IconsApi';
 import { stringifyError } from '@backstage/errors';
+// eslint-disable-next-line @backstage/no-relative-monorepo-imports
+import { icons as defaultIcons } from '../../../app-defaults/src/defaults';
+import { getBasePath } from '../routing/getBasePath';
 
 const DefaultApis = defaultApis.map(factory => createApiExtension({ factory }));
 
 export const builtinExtensions = [
-  Core,
-  CoreRouter,
-  CoreRoutes,
-  CoreNav,
-  CoreLayout,
+  App,
+  AppRoot,
+  AppRoutes,
+  AppNav,
+  AppLayout,
   DefaultProgressComponent,
   DefaultErrorBoundaryComponent,
   DefaultNotFoundErrorPageComponent,
   LightTheme,
   DarkTheme,
+  oauthRequestDialogAppRootElement,
+  alertDisplayAppRootElement,
   ...DefaultApis,
 ].map(def => resolveExtensionDefinition(def));
-
-/** @public */
-export interface ExtensionTreeNode {
-  id: string;
-  getData<T>(ref: ExtensionDataRef<T>): T | undefined;
-}
-
-/** @public */
-export interface ExtensionTree {
-  getExtension(id: string): ExtensionTreeNode | undefined;
-  getExtensionAttachments(id: string, inputName: string): ExtensionTreeNode[];
-  getRootRoutes(): JSX.Element[];
-  getSidebarItems(): JSX.Element[];
-}
-
-/** @public */
-export function createExtensionTree(options: {
-  config: Config;
-}): ExtensionTree {
-  const features = getAvailableFeatures(options.config);
-  const tree = createAppTree({
-    features,
-    builtinExtensions,
-    config: options.config,
-  });
-
-  function convertNode(node?: AppNode): ExtensionTreeNode | undefined {
-    return (
-      node && {
-        id: node.spec.id,
-        getData<T>(ref: ExtensionDataRef<T>): T | undefined {
-          return node.instance?.getData(ref);
-        },
-      }
-    );
-  }
-
-  return {
-    getExtension(id: string): ExtensionTreeNode | undefined {
-      return convertNode(tree.nodes.get(id));
-    },
-    getExtensionAttachments(
-      id: string,
-      inputName: string,
-    ): ExtensionTreeNode[] {
-      return (
-        tree.nodes
-          .get(id)
-          ?.edges.attachments.get(inputName)
-          ?.map(convertNode)
-          .filter((node): node is ExtensionTreeNode => Boolean(node)) ?? []
-      );
-    },
-    getRootRoutes(): JSX.Element[] {
-      return this.getExtensionAttachments('app/routes', 'routes').map(node => {
-        const path = node.getData(coreExtensionData.routePath);
-        const element = node.getData(coreExtensionData.reactElement);
-        const routeRef = node.getData(coreExtensionData.routeRef);
-        if (!path || !element) {
-          throw new Error(`Invalid route extension: ${node.id}`);
-        }
-        const Component = () => {
-          return element;
-        };
-        attachComponentData(Component, 'core.mountPoint', routeRef);
-
-        return <Route path={path} element={<Component />} />;
-      });
-    },
-    getSidebarItems(): JSX.Element[] {
-      const RoutedSidebarItem = (props: {
-        title: string;
-        routeRef: RouteRef;
-        icon: IconComponent;
-      }): React.JSX.Element => {
-        const location = useRouteRef(props.routeRef);
-        return (
-          <SidebarItem icon={props.icon} to={location()} text={props.title} />
-        );
-      };
-
-      return this.getExtensionAttachments('app/nav', 'items')
-        .map((node, index) => {
-          const target = node.getData(createNavItemExtension.targetDataRef);
-          if (!target) {
-            return null;
-          }
-          return (
-            <RoutedSidebarItem
-              key={index}
-              title={target.title}
-              icon={target.icon}
-              routeRef={target.routeRef}
-            />
-          );
-        })
-        .filter((x): x is JSX.Element => !!x);
-    },
-  };
-}
 
 function deduplicateFeatures(
   allFeatures: FrontendFeature[],
@@ -263,12 +171,25 @@ export interface CreateAppFeatureLoader {
 
 /** @public */
 export function createApp(options?: {
+  icons?: { [key in string]: IconComponent };
   features?: (FrontendFeature | CreateAppFeatureLoader)[];
   configLoader?: () => Promise<{ config: ConfigApi }>;
   bindRoutes?(context: { bind: CreateAppRouteBinder }): void;
+  /**
+   * The component to render while loading the app (waiting for config, features, etc)
+   *
+   * Is the text "Loading..." by default.
+   * If set to "null" then no loading fallback component is rendered.   *
+   */
+  loadingComponent?: ReactNode;
 }): {
   createRoot(): JSX.Element;
 } {
+  let suspenseFallback = options?.loadingComponent;
+  if (suspenseFallback === undefined) {
+    suspenseFallback = 'Loading...';
+  }
+
   async function appLoader() {
     const config =
       (await options?.configLoader?.().then(c => c.config)) ??
@@ -297,6 +218,7 @@ export function createApp(options?: {
     }
 
     const app = createSpecializedApp({
+      icons: options?.icons,
       config,
       features: [...discoveredFeatures, ...providedFeatures],
       bindRoutes: options?.bindRoutes,
@@ -309,7 +231,7 @@ export function createApp(options?: {
     createRoot() {
       const LazyApp = React.lazy(appLoader);
       return (
-        <React.Suspense fallback="Loading...">
+        <React.Suspense fallback={suspenseFallback}>
           <LazyApp />
         </React.Suspense>
       );
@@ -324,6 +246,7 @@ export function createApp(options?: {
  * @public
  */
 export function createSpecializedApp(options?: {
+  icons?: { [key in string]: IconComponent };
   features?: FrontendFeature[];
   config?: ConfigApi;
   bindRoutes?(context: { bind: CreateAppRouteBinder }): void;
@@ -341,8 +264,43 @@ export function createSpecializedApp(options?: {
     config,
   });
 
+  const routeInfo = extractRouteInfoFromAppNode(tree.root);
+  const routeBindings = resolveRouteBindings(
+    options?.bindRoutes,
+    config,
+    collectRouteIds(features),
+  );
+
   const appIdentityProxy = new AppIdentityProxy();
-  const apiHolder = createApiHolder(tree, config, appIdentityProxy);
+  const apiHolder = createApiHolder(
+    tree,
+    config,
+    appIdentityProxy,
+    new RouteResolver(
+      routeInfo.routePaths,
+      routeInfo.routeParents,
+      routeInfo.routeObjects,
+      routeBindings,
+      getBasePath(config),
+    ),
+    options?.icons,
+  );
+
+  if (isProtectedApp()) {
+    const discoveryApi = apiHolder.get(discoveryApiRef);
+    const errorApi = apiHolder.get(errorApiRef);
+    const fetchApi = apiHolder.get(fetchApiRef);
+    if (!discoveryApi || !errorApi || !fetchApi) {
+      throw new Error(
+        'App is running in protected mode but missing required APIs',
+      );
+    }
+    appIdentityProxy.enableCookieAuth({
+      discoveryApi,
+      errorApi,
+      fetchApi,
+    });
+  }
 
   const featureFlagApi = apiHolder.get(featureFlagsApiRef);
   if (featureFlagApi) {
@@ -363,31 +321,23 @@ export function createSpecializedApp(options?: {
     }
   }
 
-  const routeInfo = extractRouteInfoFromAppNode(tree.root);
-  const routeBindings = resolveRouteBindings(
-    options?.bindRoutes,
-    config,
-    collectRouteIds(features),
-  );
   const rootEl = tree.root.instance!.getData(coreExtensionData.reactElement);
 
-  const App = () => (
+  const AppComponent = () => (
     <ApiProvider apis={apiHolder}>
       <AppThemeProvider>
-        <RoutingProvider {...routeInfo} routeBindings={routeBindings}>
-          <InternalAppContext.Provider
-            value={{ appIdentityProxy, routeObjects: routeInfo.routeObjects }}
-          >
-            {rootEl}
-          </InternalAppContext.Provider>
-        </RoutingProvider>
+        <InternalAppContext.Provider
+          value={{ appIdentityProxy, routeObjects: routeInfo.routeObjects }}
+        >
+          {rootEl}
+        </InternalAppContext.Provider>
       </AppThemeProvider>
     </ApiProvider>
   );
 
   return {
     createRoot() {
-      return <App />;
+      return <AppComponent />;
     },
   };
 }
@@ -396,6 +346,8 @@ function createApiHolder(
   tree: AppTree,
   configApi: ConfigApi,
   appIdentityProxy: AppIdentityProxy,
+  routeResolutionApi: RouteResolutionApi,
+  icons?: { [key in string]: IconComponent },
 ): ApiHolder {
   const factoryRegistry = new ApiFactoryRegistry();
 
@@ -446,22 +398,22 @@ function createApiHolder(
     }),
   });
 
-  const componentsExtensions =
-    tree.root.edges.attachments
-      .get('components')
-      ?.map(e => e.instance?.getData(createComponentExtension.componentDataRef))
-      .filter(x => !!x) ?? [];
-
-  const componentsMap = componentsExtensions.reduce(
-    (components, component) =>
-      component ? components.set(component.ref, component?.impl) : components,
-    new Map<ComponentRef<any>, any>(),
-  );
+  factoryRegistry.register('static', {
+    api: routeResolutionApiRef,
+    deps: {},
+    factory: () => routeResolutionApi,
+  });
 
   factoryRegistry.register('static', {
     api: componentsApiRef,
     deps: {},
-    factory: () => new DefaultComponentsApi(componentsMap),
+    factory: () => DefaultComponentsApi.fromTree(tree),
+  });
+
+  factoryRegistry.register('static', {
+    api: iconsApiRef,
+    deps: {},
+    factory: () => new DefaultIconsApi({ ...defaultIcons, ...icons }),
   });
 
   factoryRegistry.register('static', {

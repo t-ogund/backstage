@@ -30,6 +30,8 @@ import { FetchUrlReader } from './FetchUrlReader';
 import { GoogleGcsUrlReader } from './GoogleGcsUrlReader';
 import { AwsS3UrlReader } from './AwsS3UrlReader';
 import { GiteaUrlReader } from './GiteaUrlReader';
+import { AwsCodeCommitUrlReader } from './AwsCodeCommitUrlReader';
+import { HarnessUrlReader } from './HarnessUrlReader';
 
 /**
  * Creation options for {@link @backstage/backend-plugin-api#UrlReaderService}.
@@ -60,7 +62,6 @@ export class UrlReaders {
     const treeResponseFactory = DefaultReadTreeResponseFactory.create({
       config,
     });
-
     for (const factory of factories ?? []) {
       const tuples = factory({ config, logger: logger, treeResponseFactory });
 
@@ -93,7 +94,9 @@ export class UrlReaders {
         GiteaUrlReader.factory,
         GitlabUrlReader.factory,
         GoogleGcsUrlReader.factory,
+        HarnessUrlReader.factory,
         AwsS3UrlReader.factory,
+        AwsCodeCommitUrlReader.factory,
         FetchUrlReader.factory,
       ]),
     });

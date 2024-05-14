@@ -7,11 +7,8 @@
 
 import { ApiHolder } from '@backstage/core-plugin-api';
 import { ComponentType } from 'react';
-import { CustomFieldExtensionSchema } from '@backstage/plugin-scaffolder-react';
 import { CustomFieldValidator } from '@backstage/plugin-scaffolder-react';
 import { Dispatch } from 'react';
-import { Extension } from '@backstage/core-plugin-api';
-import { FieldExtensionComponent } from '@backstage/plugin-scaffolder-react';
 import { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
 import { FieldValidation } from '@rjsf/utils';
 import { FormProps } from '@backstage/plugin-scaffolder-react';
@@ -19,22 +16,30 @@ import { IconComponent } from '@backstage/core-plugin-api';
 import { JsonObject } from '@backstage/types';
 import { JsonValue } from '@backstage/types';
 import { LayoutOptions } from '@backstage/plugin-scaffolder-react';
+import { Overrides } from '@material-ui/core/styles/overrides';
 import { PropsWithChildren } from 'react';
 import { default as React_2 } from 'react';
 import { ReactElement } from 'react';
 import { ReactNode } from 'react';
 import { ReviewStepProps } from '@backstage/plugin-scaffolder-react';
-import { ScaffolderRJSFFieldProps } from '@backstage/plugin-scaffolder-react';
 import { ScaffolderRJSFFormProps } from '@backstage/plugin-scaffolder-react';
 import { ScaffolderStep } from '@backstage/plugin-scaffolder-react';
 import { ScaffolderTaskOutput } from '@backstage/plugin-scaffolder-react';
 import { SetStateAction } from 'react';
+import { StyleRules } from '@material-ui/core/styles/withStyles';
 import { TaskStep } from '@backstage/plugin-scaffolder-common';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { TemplateGroupFilter } from '@backstage/plugin-scaffolder-react';
 import { TemplateParameterSchema } from '@backstage/plugin-scaffolder-react';
 import { TemplatePresentationV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { UiSchema } from '@rjsf/utils';
+
+// @alpha (undocumented)
+export type BackstageOverrides = Overrides & {
+  [Name in keyof ScaffolderReactComponentsNameToClassKey]?: Partial<
+    StyleRules<ScaffolderReactComponentsNameToClassKey[Name]>
+  >;
+};
 
 // @alpha (undocumented)
 export const createAsyncValidators: (
@@ -50,14 +55,6 @@ export const createAsyncValidators: (
 
 // @alpha
 export const createFieldValidation: () => FieldValidation;
-
-// @alpha
-export function createLegacyScaffolderFieldExtension<
-  TReturnValue = unknown,
-  TInputProps = unknown,
->(
-  options: LegacyFieldExtensionOptions<TReturnValue, TInputProps>,
-): Extension<FieldExtensionComponent<TReturnValue, TInputProps>>;
 
 // @alpha
 export const DefaultTemplateOutputs: (props: {
@@ -81,39 +78,6 @@ export const Form: (
 // @alpha (undocumented)
 export type FormValidation = {
   [name: string]: FieldValidation | FormValidation;
-};
-
-// @alpha
-export type LegacyCustomFieldValidator<TFieldReturnValue> = (
-  data: TFieldReturnValue,
-  field: FieldValidation,
-  context: {
-    apiHolder: ApiHolder;
-  },
-) => void | Promise<void>;
-
-// @alpha
-export interface LegacyFieldExtensionComponentProps<
-  TFieldReturnValue,
-  TUiOptions = unknown,
-> extends ScaffolderRJSFFieldProps<TFieldReturnValue> {
-  // (undocumented)
-  uiSchema: ScaffolderRJSFFieldProps['uiSchema'] & {
-    'ui:options'?: TUiOptions;
-  };
-}
-
-// @alpha
-export type LegacyFieldExtensionOptions<
-  TFieldReturnValue = unknown,
-  TInputProps = unknown,
-> = {
-  name: string;
-  component: (
-    props: LegacyFieldExtensionComponentProps<TFieldReturnValue, TInputProps>,
-  ) => JSX.Element | null;
-  validation?: LegacyCustomFieldValidator<TFieldReturnValue>;
-  schema?: CustomFieldExtensionSchema;
 };
 
 // @alpha
@@ -174,7 +138,16 @@ export type ScaffolderPageContextMenuProps = {
   onEditorClicked?: () => void;
   onActionsClicked?: () => void;
   onTasksClicked?: () => void;
+  onCreateClicked?: () => void;
 };
+
+// @alpha (undocumented)
+export type ScaffolderReactComponentsNameToClassKey = {
+  ScaffolderReactTemplateCategoryPicker: ScaffolderReactTemplateCategoryPickerClassKey;
+};
+
+// @alpha (undocumented)
+export type ScaffolderReactTemplateCategoryPickerClassKey = 'root' | 'label';
 
 // @alpha
 export const Stepper: (stepperProps: StepperProps) => React_2.JSX.Element;

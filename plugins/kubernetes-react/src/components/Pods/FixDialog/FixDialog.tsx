@@ -15,7 +15,8 @@
  */
 import React, { useState } from 'react';
 
-import { Button, Grid } from '@material-ui/core';
+import Button from '@material-ui/core/Button';
+import Grid from '@material-ui/core/Grid';
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
@@ -119,7 +120,7 @@ export const FixDialog: React.FC<FixDialogProps> = ({
                 containerScope={{
                   podName: pod.metadata?.name ?? 'unknown',
                   podNamespace: pod.metadata?.namespace ?? 'unknown',
-                  clusterName: clusterName,
+                  cluster: { name: clusterName },
                   containerName: pf.container,
                 }}
               />

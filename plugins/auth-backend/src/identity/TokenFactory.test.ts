@@ -13,12 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 import { getVoidLogger } from '@backstage/backend-common';
 import { stringifyEntityRef } from '@backstage/catalog-model';
-import { createLocalJWKSet, decodeProtectedHeader, jwtVerify } from 'jose';
-
+import {
+  base64url,
+  createLocalJWKSet,
+  decodeProtectedHeader,
+  jwtVerify,
+} from 'jose';
 import { MemoryKeyStore } from './MemoryKeyStore';
 import { TokenFactory } from './TokenFactory';
+import { tokenTypes } from '@backstage/plugin-auth-node';
 
 const logger = getVoidLogger();
 
@@ -60,17 +66,53 @@ describe('TokenFactory', () => {
     const keyStore = createLocalJWKSet({ keys: keys });
 
     const verifyResult = await jwtVerify(token, keyStore);
+    expect(verifyResult.protectedHeader.typ).toBe(tokenTypes.user.typParam);
     expect(verifyResult.payload).toEqual({
       iss: 'my-issuer',
-      aud: 'backstage',
+      aud: tokenTypes.user.audClaim,
       sub: entityRef,
       ent: [entityRef],
       'x-fancy-claim': 'my special claim',
       iat: expect.any(Number),
       exp: expect.any(Number),
+      uip: expect.any(String),
     });
     expect(verifyResult.payload.exp).toBe(
       verifyResult.payload.iat! + keyDurationSeconds,
+    );
+
+    // Emulate the reconstruction of a limited user token
+    const limitedUserToken = [
+      base64url.encode(
+        JSON.stringify({
+          typ: tokenTypes.limitedUser.typParam,
+          alg: verifyResult.protectedHeader.alg,
+          kid: verifyResult.protectedHeader.kid!,
+        }),
+      ),
+      base64url.encode(
+        JSON.stringify({
+          sub: verifyResult.payload.sub,
+          ent: verifyResult.payload.ent,
+          iat: verifyResult.payload.iat,
+          exp: verifyResult.payload.exp,
+        }),
+      ),
+      verifyResult.payload.uip,
+    ].join('.');
+
+    const verifyProofResult = await jwtVerify(limitedUserToken, keyStore);
+    expect(verifyProofResult.protectedHeader.typ).toBe(
+      tokenTypes.limitedUser.typParam,
+    );
+    expect(verifyProofResult.payload).toEqual({
+      sub: entityRef,
+      ent: [entityRef],
+      iat: expect.any(Number),
+      exp: expect.any(Number),
+    });
+    expect(verifyProofResult.payload.exp).toBe(
+      verifyProofResult.payload.iat! + keyDurationSeconds,
     );
   });
 
@@ -152,6 +194,23 @@ describe('TokenFactory', () => {
         claims: { sub: 'UserId' },
       });
     }).rejects.toThrow();
+  });
+
+  it('should refuse to issue excessively large tokens', async () => {
+    const factory = new TokenFactory({
+      issuer: 'my-issuer',
+      keyStore: new MemoryKeyStore(),
+      keyDurationSeconds: 5,
+      logger,
+    });
+
+    await expect(() => {
+      return factory.issueToken({
+        claims: { sub: 'user:ns/n', ent: Array(10000).fill('group:ns/n') },
+      });
+    }).rejects.toThrow(
+      /^Failed to issue a new user token. The resulting token is excessively large, with either too many ownership claims or too large custom claims./,
+    );
   });
 
   it('should defaults to ES256 when no algorithm string is supplied', async () => {

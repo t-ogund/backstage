@@ -51,6 +51,18 @@ export class TechDocsClient implements TechDocsApi {
     this.fetchApi = options.fetchApi;
   }
 
+  public async getCookie(): Promise<{ expiresAt: string }> {
+    const apiOrigin = await this.getApiOrigin();
+    const requestUrl = `${apiOrigin}/cookie`;
+    const response = await this.fetchApi.fetch(`${requestUrl}`, {
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw await ResponseError.fromResponse(response);
+    }
+    return await response.json();
+  }
+
   async getApiOrigin(): Promise<string> {
     return await this.discoveryApi.getBaseUrl('techdocs');
   }
@@ -139,7 +151,7 @@ export class TechDocsStorageClient implements TechDocsStorageApi {
   }
 
   async getBuilder(): Promise<string> {
-    return this.configApi.getString('techdocs.builder');
+    return this.configApi.getOptionalString('techdocs.builder') || 'local';
   }
 
   /**
